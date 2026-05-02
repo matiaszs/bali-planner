@@ -71,17 +71,19 @@
     #app { grid-template-columns: 1fr; }
 
     #sidebar {
-      position: fixed; bottom: 0; left: 0; right: 0; height: 85vh; z-index: 500;
+      position: fixed; bottom: 0; left: 0; right: 0; height: 85vh;
+      z-index: 1020;
       transform: translateY(100%); border-radius: 18px 18px 0 0;
       transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
     }
     #sidebar.open { transform: translateY(0); }
 
-    #mobile-handle { display: flex; }
-
-    #fab { display: flex; }
-
+    #backdrop { z-index: 1010; }
     #backdrop.visible { display: block; }
+
+    #fab { display: flex; z-index: 1030; }
+
+    #mobile-handle { display: flex; }
 
     #map-controls { top: 12px; right: 12px; }
 
