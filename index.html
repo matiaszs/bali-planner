@@ -41,6 +41,55 @@
 
   #app { display: grid; grid-template-columns: 380px 1fr; height: 100vh; }
 
+  /* FAB & BACKDROP (mobile only) */
+  #fab {
+    display: none; position: fixed; bottom: 24px; right: 20px; z-index: 600;
+    width: 54px; height: 54px; border-radius: 50%; border: none;
+    background: var(--ocean); color: white; font-size: 22px; cursor: pointer;
+    box-shadow: 0 4px 18px rgba(42,127,143,0.5); align-items: center; justify-content: center;
+    transition: transform 0.15s, background 0.15s;
+  }
+  #fab:active { transform: scale(0.93); }
+  #backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 490;
+    backdrop-filter: blur(2px);
+  }
+  #mobile-handle {
+    display: none; flex-direction: column; align-items: center; padding: 10px 20px 4px; flex-shrink: 0;
+  }
+  .handle-bar { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
+  .handle-title {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 10px;
+    font-size: 14px; font-weight: 600; color: white;
+  }
+  .handle-close {
+    background: none; border: none; color: rgba(255,255,255,0.5); font-size: 20px;
+    cursor: pointer; padding: 0 2px; line-height: 1;
+  }
+
+  @media (max-width: 768px) {
+    #app { grid-template-columns: 1fr; }
+
+    #sidebar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 85vh; z-index: 500;
+      transform: translateY(100%); border-radius: 18px 18px 0 0;
+      transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #sidebar.open { transform: translateY(0); }
+
+    #mobile-handle { display: flex; }
+
+    #fab { display: flex; }
+
+    #backdrop.visible { display: block; }
+
+    #map-controls { top: 12px; right: 12px; }
+
+    #route-legend { bottom: 90px; right: 12px; }
+
+    #click-mode-banner { bottom: 90px; }
+  }
+
   /* SIDEBAR */
   #sidebar {
     background: var(--night);
@@ -333,6 +382,13 @@
 <body>
 <div id="app">
   <div id="sidebar">
+    <div id="mobile-handle">
+      <div class="handle-bar"></div>
+      <div class="handle-title">
+        <span>Planificateur</span>
+        <button class="handle-close" onclick="closeSidebar()">✕</button>
+      </div>
+    </div>
     <div id="sidebar-header">
       <div class="app-title">Bali <span>Planner</span></div>
       <div class="app-sub">Planificateur d'itinéraire</div>
@@ -427,6 +483,8 @@
       <button class="map-ctrl-btn" id="btn-route" onclick="toggleRoute()">Afficher route</button>
     </div>
     <div id="click-mode-banner" class="visible">Cliquez sur la carte pour placer un lieu</div>
+    <button id="fab" onclick="toggleSidebar()">＋</button>
+    <div id="backdrop" onclick="closeSidebar()"></div>
     <div id="route-legend">
       <span class="legend-item"><span class="legend-line land"></span>Route</span>
       <span class="legend-item"><span class="legend-line boat"></span>Bateau</span>
@@ -667,6 +725,7 @@ function switchTabDirect(tab) {
   const tabs = document.querySelectorAll('.tab');
   if (tab === 'add') tabs[0].classList.add('active');
   if (tab === 'itinerary') { tabs[1].classList.add('active'); renderItinerary(); }
+  if (window.innerWidth <= 768) openSidebar();
 }
 
 function prepareAddForDay(stageId, dayNum) {
@@ -1021,6 +1080,21 @@ function switchTab(tab) {
   if (tab === 'itinerary') renderItinerary();
 }
 
+
+function toggleSidebar() {
+  const isOpen = document.getElementById('sidebar').classList.contains('open');
+  isOpen ? closeSidebar() : openSidebar();
+}
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('backdrop').classList.add('visible');
+  document.getElementById('fab').textContent = '✕';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('visible');
+  document.getElementById('fab').textContent = '＋';
+}
 
 window.addEventListener('DOMContentLoaded', initMap);
 </script>
