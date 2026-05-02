@@ -634,19 +634,16 @@ function deletePoi(id) {
   map.closePopup();
 }
 
-function makeIcon(place, index) {
+function makeIcon(place) {
   const color = CAT_COLORS[place.cat] || '#6B7280';
-  const html = `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);">
-    <span style="transform:rotate(45deg);font-size:11px;font-weight:700;color:white;">${index}</span></div>`;
-  return L.divIcon({ html, className: '', iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30] });
+  const html = `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>`;
+  return L.divIcon({ html, className: '', iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -24] });
 }
 
 function addMarker(place) {
-  const dayPlaces = places.filter(p => p.day === place.day);
-  const idx = dayPlaces.findIndex(p => p.id === place.id) + 1;
-  const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place, idx) }).addTo(map);
+  const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place) }).addTo(map);
   marker.bindPopup(buildPopup(place));
-  marker.bindTooltip(place.name, { permanent: true, direction: 'bottom', offset: [0, 6], className: 'place-label' });
+  marker.bindTooltip(place.name, { permanent: true, direction: 'top', offset: [0, -4], className: 'place-label' });
   markers[place.id] = marker;
 }
 
