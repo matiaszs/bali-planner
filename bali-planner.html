@@ -184,38 +184,58 @@
   }
   .day-add:hover { border-color: rgba(255,255,255,0.5); color: rgba(255,255,255,0.7); }
 
-  /* ITINERARY LIST */
+  /* ITINERARY REDESIGN */
   #panel-itinerary { padding: 0; }
 
-  .itin-day-section { padding: 14px 20px; }
-  .itin-day-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px;
+  .itin-stage { border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .itin-stage-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px 10px; cursor: pointer;
   }
-  .itin-day-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
-  .itin-day-dist { font-size: 11px; color: rgba(255,255,255,0.35); }
-
-  .itin-place-item {
-    display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
-    background: rgba(255,255,255,0.04); border-radius: 8px; margin-bottom: 6px;
-    border: 1px solid rgba(255,255,255,0.06); transition: all 0.15s;
-    cursor: pointer;
+  .itin-stage-header:hover { background: rgba(255,255,255,0.03); }
+  .itin-stage-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .itin-stage-name { font-size: 14px; font-weight: 600; color: white; flex: 1; }
+  .itin-stage-dur { display: flex; align-items: center; gap: 5px; }
+  .dur-input {
+    width: 34px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 5px; color: white; text-align: center; font-size: 12px;
+    padding: 2px 4px; font-family: 'DM Sans', sans-serif;
   }
-  .itin-place-item:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
-  .itin-num {
-    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: white;
+  .itin-stage-body { padding: 0 20px 10px; }
+  .itin-day-block { margin-bottom: 10px; }
+  .itin-day-title {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.07em; color: rgba(255,255,255,0.28); margin-bottom: 5px;
   }
-  .itin-info { flex: 1; min-width: 0; }
-  .itin-name { font-size: 13px; font-weight: 500; color: white; }
-  .itin-meta { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
-  .itin-dist-arrow { font-size: 10px; color: rgba(255,255,255,0.25); text-align: center; padding: 2px 0 2px 32px; }
-  .itin-del {
-    font-size: 14px; color: rgba(255,255,255,0.25); cursor: pointer; padding: 2px 4px;
-    border-radius: 4px; transition: all 0.15s; line-height: 1; flex-shrink: 0;
+  .itin-poi-card {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 10px; background: rgba(255,255,255,0.04);
+    border-radius: 7px; margin-bottom: 4px; border: 1px solid rgba(255,255,255,0.05);
   }
-  .itin-del:hover { background: rgba(232,113,74,0.3); color: var(--accent-light); }
-
+  .itin-poi-emoji { font-size: 15px; flex-shrink: 0; line-height: 1.5; }
+  .itin-poi-body { flex: 1; min-width: 0; }
+  .itin-poi-name { font-size: 12px; font-weight: 500; color: white; }
+  .itin-poi-note { font-size: 11px; color: rgba(255,255,255,0.38); margin-top: 2px; font-style: italic; }
+  .itin-poi-note-input {
+    width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 5px; color: white; font-size: 11px; padding: 5px 7px; margin-top: 4px;
+    font-family: 'DM Sans', sans-serif; resize: none;
+  }
+  .itin-poi-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .itin-poi-btn {
+    background: none; border: none; color: rgba(255,255,255,0.22); cursor: pointer;
+    font-size: 14px; padding: 2px 4px; border-radius: 4px; line-height: 1;
+  }
+  .itin-poi-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+  .itin-add-poi-btn {
+    display: flex; align-items: center; gap: 5px; font-size: 11px;
+    color: rgba(255,255,255,0.22); cursor: pointer; padding: 5px 2px;
+    background: none; border: none; font-family: 'DM Sans', sans-serif; width: 100%;
+  }
+  .itin-add-poi-btn:hover { color: rgba(255,255,255,0.6); }
+  .itin-transport-arrow {
+    font-size: 11px; color: rgba(255,255,255,0.22); padding: 4px 20px; display: flex; align-items: center; gap: 6px;
+  }
   .itin-empty { padding: 40px 20px; text-align: center; color: rgba(255,255,255,0.25); font-size: 13px; line-height: 1.7; }
   .itin-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
 
@@ -363,8 +383,20 @@
         </div>
 
         <div class="form-group">
-          <label>Notes (optionnel)</label>
-          <textarea id="place-note" placeholder="Heures d'ouverture, conseils..."></textarea>
+          <label>Ajouter à une étape (optionnel)</label>
+          <select id="place-stage" onchange="onStageChange()">
+            <option value="">— Carte uniquement —</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="day-num-group" style="display:none;">
+          <label>Jour dans l'étape</label>
+          <input type="number" id="place-day-num" min="1" value="1" style="width:80px;"/>
+        </div>
+
+        <div class="form-group">
+          <label>Description (optionnel)</label>
+          <textarea id="place-note" placeholder="Heures d'ouverture, à essayer, conseils..."></textarea>
         </div>
 
         <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
@@ -374,7 +406,6 @@
     </div>
 
     <div id="panel-itinerary" class="panel">
-      <div class="day-strip" id="day-strip"></div>
       <div style="flex:1;overflow-y:auto;" id="itin-scroll">
         <div id="itin-content"></div>
       </div>
@@ -504,15 +535,15 @@ document.addEventListener('click', e => {
 
 let map, tempMarker, pendingCoords = null;
 let places = [
-  { id: 1, name: 'Canggu',         cat: 'Plage',   day: 1, note: 'Point de départ', lat: -8.6522, lng: 115.1320, transport: null   },
-  { id: 2, name: 'Sidemen',        cat: 'Nature',  day: 2, note: '',                 lat: -8.4878, lng: 115.5949, transport: 'land' },
-  { id: 3, name: 'Ubud',           cat: 'Temple',  day: 3, note: '',                 lat: -8.5069, lng: 115.2625, transport: 'land' },
-  { id: 4, name: 'Munduk',         cat: 'Nature',  day: 4, note: '',                 lat: -8.2616, lng: 115.0730, transport: 'land' },
-  { id: 5, name: 'Lovina',         cat: 'Plage',   day: 5, note: '',                 lat: -8.1590, lng: 115.0261, transport: 'land' },
-  { id: 6, name: 'Îles Gili',      cat: 'Plage',   day: 6, note: 'Gili Trawangan',  lat: -8.3521, lng: 116.0388, transport: 'boat' },
-  { id: 7, name: 'Nusa Lembongan', cat: 'Plage',   day: 7, note: '',                 lat: -8.6867, lng: 115.4527, transport: 'boat' },
-  { id: 8, name: 'Nusa Penida',    cat: 'Nature',  day: 8, note: '',                 lat: -8.7276, lng: 115.5440, transport: 'land' },
-  { id: 9, name: 'Uluwatu',        cat: 'Temple',  day: 9, note: '',                 lat: -8.8291, lng: 115.0849, transport: 'land' },
+  { id: 1, name: 'Canggu',         cat: 'Plage',   day: 1, duration: 7, note: '', lat: -8.6522, lng: 115.1320, transport: null   },
+  { id: 2, name: 'Sidemen',        cat: 'Nature',  day: 2, duration: 2, note: '', lat: -8.4878, lng: 115.5949, transport: 'land' },
+  { id: 3, name: 'Ubud',           cat: 'Temple',  day: 3, duration: 3, note: '', lat: -8.5069, lng: 115.2625, transport: 'land' },
+  { id: 4, name: 'Munduk',         cat: 'Nature',  day: 4, duration: 2, note: '', lat: -8.2616, lng: 115.0730, transport: 'land' },
+  { id: 5, name: 'Lovina',         cat: 'Plage',   day: 5, duration: 2, note: '', lat: -8.1590, lng: 115.0261, transport: 'land' },
+  { id: 6, name: 'Îles Gili',      cat: 'Plage',   day: 6, duration: 3, note: '', lat: -8.3521, lng: 116.0388, transport: 'boat' },
+  { id: 7, name: 'Nusa Lembongan', cat: 'Plage',   day: 7, duration: 2, note: '', lat: -8.6867, lng: 115.4527, transport: 'boat' },
+  { id: 8, name: 'Nusa Penida',    cat: 'Nature',  day: 8, duration: 2, note: '', lat: -8.7276, lng: 115.5440, transport: 'land' },
+  { id: 9, name: 'Uluwatu',        cat: 'Temple',  day: 9, duration: 3, note: '', lat: -8.8291, lng: 115.0849, transport: 'land' },
 ];
 let numDays = 9;
 let currentDay = 1;
@@ -549,10 +580,8 @@ function initMap() {
 
   places.forEach(place => addMarker(place));
   map.fitBounds(places.map(p => [p.lat, p.lng]), { padding: [40, 40] });
-  renderDayStrip();
-  updateDaySelect();
+  updateStageSelect();
   updateStats();
-  renderItinerary();
   drawRoute();
   document.getElementById('btn-route').classList.add('active');
 }
@@ -589,10 +618,13 @@ function getSelectedCat() {
 function addPlace() {
   const name = document.getElementById('place-name').value.trim();
   if (!name || !pendingCoords) return;
-  const cat  = getSelectedCat();
-  const note = document.getElementById('place-note').value.trim();
-  const id   = Date.now();
-  const poi  = { id, name, cat, note, lat: pendingCoords.lat, lng: pendingCoords.lng };
+  const cat      = getSelectedCat();
+  const note     = document.getElementById('place-note').value.trim();
+  const stageVal = document.getElementById('place-stage').value;
+  const stageId  = stageVal ? parseInt(stageVal) : null;
+  const dayNum   = stageId ? Math.max(1, parseInt(document.getElementById('place-day-num').value) || 1) : null;
+  const id = Date.now();
+  const poi = { id, name, cat, note, lat: pendingCoords.lat, lng: pendingCoords.lng, stageId, dayNum };
   pois.push(poi);
   addPoiMarker(poi);
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
@@ -604,6 +636,45 @@ function addPlace() {
   document.getElementById('search-input').value = '';
   document.getElementById('btn-add').disabled = true;
   updateStats();
+  if (stageId) { switchTabDirect('itinerary'); }
+}
+
+function onStageChange() {
+  const stageId = document.getElementById('place-stage').value;
+  const group   = document.getElementById('day-num-group');
+  if (stageId) {
+    const stage = places.find(p => p.id === parseInt(stageId));
+    document.getElementById('place-day-num').max = stage ? stage.duration : 99;
+    group.style.display = 'block';
+  } else {
+    group.style.display = 'none';
+  }
+}
+
+function updateStageSelect() {
+  const sel = document.getElementById('place-stage');
+  while (sel.options.length > 1) sel.remove(1);
+  [...places].sort((a, b) => a.day - b.day).forEach(p => {
+    const opt = new Option(p.name, p.id);
+    sel.appendChild(opt);
+  });
+}
+
+function switchTabDirect(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  if (tab === 'add') tabs[0].classList.add('active');
+  if (tab === 'itinerary') { tabs[1].classList.add('active'); renderItinerary(); }
+}
+
+function prepareAddForDay(stageId, dayNum) {
+  switchTabDirect('add');
+  document.getElementById('place-stage').value = stageId;
+  onStageChange();
+  document.getElementById('place-day-num').value = dayNum;
+  document.getElementById('search-input').focus();
 }
 
 function makePoiIcon(poi) {
@@ -627,11 +698,45 @@ function addPoiMarker(poi) {
 function deletePoi(id) {
   const idx = pois.findIndex(p => p.id === id);
   if (idx < 0) return;
+  const hadStage = pois[idx].stageId != null;
   map.removeLayer(poiMarkers[id]);
   delete poiMarkers[id];
   pois.splice(idx, 1);
   updateStats();
   map.closePopup();
+  if (hadStage) renderItinerary();
+}
+
+function startEditNote(poiId) {
+  const poi = pois.find(p => p.id === poiId);
+  if (!poi) return;
+  const noteEl = document.getElementById('poi-note-' + poiId);
+  if (!noteEl) return;
+  noteEl.innerHTML = `<textarea class="itin-poi-note-input" id="note-input-${poiId}" rows="2">${poi.note || ''}</textarea>
+    <button onclick="saveNote(${poiId})" style="margin-top:5px;padding:4px 12px;background:var(--ocean);border:none;border-radius:5px;color:white;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">Enregistrer</button>`;
+  document.getElementById('note-input-' + poiId).focus();
+}
+
+function saveNote(poiId) {
+  const poi = pois.find(p => p.id === poiId);
+  if (!poi) return;
+  const input = document.getElementById('note-input-' + poiId);
+  poi.note = input ? input.value.trim() : '';
+  if (poiMarkers[poiId]) poiMarkers[poiId].setPopupContent(
+    `<div class="popup-name">${poi.name}</div><div class="popup-cat">${poi.cat}</div>
+     ${poi.note ? `<div class="popup-note">${poi.note}</div>` : ''}
+     <div class="popup-actions"><button class="popup-btn popup-btn-del" onclick="deletePoi(${poi.id})">Supprimer</button></div>`
+  );
+  renderItinerary();
+
+}
+
+function setDuration(stageId, value) {
+  const stage = places.find(p => p.id === stageId);
+  if (!stage) return;
+  stage.duration = Math.max(1, parseInt(value) || 1);
+  updateStats();
+  renderItinerary();
 }
 
 function makeIcon(place) {
@@ -701,81 +806,72 @@ function haversine(lat1, lng1, lat2, lng2) {
 
 function updateStats() {
   document.getElementById('stat-lieux').textContent = places.length + pois.length;
-  document.getElementById('stat-jours').textContent = numDays;
-  const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
+  const totalDays = places.reduce((acc, p) => acc + (p.duration || 1), 0);
+  document.getElementById('stat-jours').textContent = totalDays;
+  const ordered = [...places].sort((a, b) => a.day - b.day);
   let km = 0;
   for (let i = 0; i < ordered.length - 1; i++)
     km += haversine(ordered[i].lat, ordered[i].lng, ordered[i+1].lat, ordered[i+1].lng);
   document.getElementById('stat-km').textContent = km;
 }
 
-function renderDayStrip() {
-  const strip = document.getElementById('day-strip');
-  strip.innerHTML = '';
-  for (let d = 1; d <= numDays; d++) {
-    const btn = document.createElement('button');
-    btn.className = 'day-chip' + (d === currentDay ? ' active' : '');
-    const n = places.filter(p => p.day === d).length;
-    btn.textContent = 'Jour ' + d + (n > 0 ? ' (' + n + ')' : '');
-    btn.onclick = () => { currentDay = d; renderDayStrip(); renderItinerary(); };
-    strip.appendChild(btn);
-  }
-  const addBtn = document.createElement('button');
-  addBtn.className = 'day-add';
-  addBtn.textContent = '+ Jour';
-  addBtn.onclick = () => {
-    numDays++;
-    renderDayStrip();
-    updateDaySelect();
-    updateStats();
-  };
-  strip.appendChild(addBtn);
-}
-
-function updateDaySelect() {
-  const sel = document.getElementById('place-day');
-  const prev = sel.value;
-  sel.innerHTML = '';
-  for (let d = 1; d <= numDays; d++) {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = 'Jour ' + d;
-    sel.appendChild(opt);
-  }
-  if (prev && parseInt(prev) <= numDays) sel.value = prev;
-}
-
 function renderItinerary() {
   const cont = document.getElementById('itin-content');
-  if (places.length === 0) {
-    cont.innerHTML = `<div class="itin-empty">
-      <div class="itin-empty-icon">📍</div>
-      Aucun lieu ajouté.<br>Clique sur la carte et remplis le formulaire pour commencer.
-    </div>`;
-    renderDayStrip();
-    return;
-  }
-  const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
-  let html = '<div style="padding:14px 20px;">';
-  ordered.forEach((p, i) => {
-    const color = CAT_COLORS[p.cat] || '#6B7280';
-    const next = ordered[i + 1];
-    const dist = next ? haversine(p.lat, p.lng, next.lat, next.lng) : null;
-    const isBoat = next && next.transport === 'boat';
-    html += `<div class="itin-place-item" onclick="focusPlace(${p.id})">
-      <div class="itin-num" style="background:${color}">${i + 1}</div>
-      <div class="itin-info">
-        <div class="itin-name">${p.name}</div>
-        <div class="itin-meta">Jour ${p.day} &middot; ${p.cat}${p.note ? ' &middot; ' + p.note : ''}</div>
+  const ordered = [...places].sort((a, b) => a.day - b.day);
+  let html = '';
+
+  ordered.forEach((stage, si) => {
+    const color      = CAT_COLORS[stage.cat] || '#6B7280';
+    const dur        = stage.duration || 1;
+    const stagePois  = pois.filter(p => p.stageId === stage.id);
+
+    if (si > 0) {
+      const prev   = ordered[si - 1];
+      const dist   = haversine(prev.lat, prev.lng, stage.lat, stage.lng);
+      const isBoat = stage.transport === 'boat';
+      html += `<div class="itin-transport-arrow">${isBoat ? '🚢' : '↓'} <span>${dist} km${isBoat ? ' · bateau' : ' · route'}</span></div>`;
+    }
+
+    html += `<div class="itin-stage">
+      <div class="itin-stage-header" onclick="focusPlace(${stage.id})">
+        <div class="itin-stage-dot" style="background:${color}"></div>
+        <div class="itin-stage-name">${stage.name}</div>
+        <div class="itin-stage-dur">
+          <input type="number" class="dur-input" value="${dur}" min="1"
+            onclick="event.stopPropagation()"
+            onchange="setDuration(${stage.id},this.value)" title="Durée"/>
+          <span style="font-size:11px;color:rgba(255,255,255,0.3);">j</span>
+        </div>
       </div>
-      <div class="itin-del" onclick="event.stopPropagation();deletePlace(${p.id})" title="Supprimer">&times;</div>
-    </div>
-    ${dist ? `<div class="itin-dist-arrow" style="color:${isBoat ? '#2A7F8F' : 'rgba(255,255,255,0.25)'}">
-      ${isBoat ? '🚢' : '↓'} ${dist} km${isBoat ? ' · bateau' : ''}
-    </div>` : ''}`;
+      <div class="itin-stage-body">`;
+
+    for (let d = 1; d <= dur; d++) {
+      const dayPois = stagePois.filter(p => p.dayNum === d);
+      html += `<div class="itin-day-block"><div class="itin-day-title">Jour ${d}</div>`;
+
+      dayPois.forEach(poi => {
+        const emoji = CAT_EMOJIS[poi.cat] || '📌';
+        html += `<div class="itin-poi-card">
+          <span class="itin-poi-emoji">${emoji}</span>
+          <div class="itin-poi-body">
+            <div class="itin-poi-name">${poi.name}</div>
+            <div class="itin-poi-note" id="poi-note-${poi.id}">${poi.note || '<em style="opacity:0.5;">Ajouter une description…</em>'}</div>
+          </div>
+          <div class="itin-poi-actions">
+            <button class="itin-poi-btn" onclick="startEditNote(${poi.id})" title="Modifier">✎</button>
+            <button class="itin-poi-btn" onclick="deletePoi(${poi.id})" title="Supprimer">×</button>
+          </div>
+        </div>`;
+      });
+
+      html += `<button class="itin-add-poi-btn" onclick="prepareAddForDay(${stage.id},${d})">＋ Ajouter un lieu</button>`;
+      html += '</div>';
+    }
+
+    html += '</div></div>';
   });
-  html += '</div>';
-  cont.innerHTML = html;
-  renderDayStrip();
+
+  cont.innerHTML = html || '<div class="itin-empty"><div class="itin-empty-icon">📍</div>Aucune étape.</div>';
 }
 
 function focusPlace(id) {
@@ -818,6 +914,7 @@ function switchTab(tab) {
   event.target.classList.add('active');
   if (tab === 'itinerary') renderItinerary();
 }
+
 
 window.addEventListener('DOMContentLoaded', initMap);
 </script>
