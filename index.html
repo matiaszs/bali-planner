@@ -334,8 +334,9 @@
   <div style="position:relative;flex:1;">
     <div id="map"></div>
     <div id="map-controls">
-      <button class="map-ctrl-btn active" id="btn-satellite" onclick="setLayer('streets')">Carte</button>
+      <button class="map-ctrl-btn active" id="btn-streets" onclick="setLayer('streets')">Carte</button>
       <button class="map-ctrl-btn" id="btn-topo" onclick="setLayer('topo')">Relief</button>
+      <button class="map-ctrl-btn" id="btn-satellite" onclick="setLayer('satellite')">Satellite</button>
       <button class="map-ctrl-btn" id="btn-route" onclick="toggleRoute()">Afficher route</button>
     </div>
     <div id="click-mode-banner" class="visible">Cliquez sur la carte pour placer un lieu</div>
@@ -406,21 +407,23 @@ function initMap() {
   document.getElementById('btn-route').classList.add('active');
 }
 
+const TILE_LAYERS = {
+  streets:   { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+               attr: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 19 },
+  topo:      { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+               attr: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ', maxZoom: 19 },
+  satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+               attr: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+};
+
 function setLayer(type) {
   if (tileLayer) map.removeLayer(tileLayer);
   currentLayer = type;
-  if (type === 'topo') {
-    tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 19
-    });
-  } else {
-    tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 19
-    });
-  }
-  tileLayer.addTo(map);
-  document.getElementById('btn-satellite').classList.toggle('active', type === 'streets');
-  document.getElementById('btn-topo').classList.toggle('active', type === 'topo');
+  const cfg = TILE_LAYERS[type];
+  tileLayer = L.tileLayer(cfg.url, { attribution: cfg.attr, maxZoom: cfg.maxZoom }).addTo(map);
+  ['streets', 'topo', 'satellite'].forEach(t =>
+    document.getElementById('btn-' + t).classList.toggle('active', t === type)
+  );
 }
 
 function selectCat(btn) {
