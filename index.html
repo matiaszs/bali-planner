@@ -236,6 +236,16 @@
   .legend-line.land { background: repeating-linear-gradient(90deg,#E8714A 0,#E8714A 6px,transparent 6px,transparent 11px); }
   .legend-line.boat { background: repeating-linear-gradient(90deg,#2A7F8F 0,#2A7F8F 3px,transparent 3px,transparent 13px); }
 
+  /* PLACE LABELS */
+  .place-label {
+    background: white; border: none !important;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.25); border-radius: 4px;
+    padding: 2px 7px; font-size: 11px; font-weight: 600;
+    color: var(--night); font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+  .place-label::before { display: none; }
+
   /* LEAFLET OVERRIDES */
   .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--shadow); font-family: 'DM Sans', sans-serif; }
   .leaflet-popup-content { margin: 12px 16px; }
@@ -470,6 +480,7 @@ function addMarker(place) {
   const idx = dayPlaces.findIndex(p => p.id === place.id) + 1;
   const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place, idx) }).addTo(map);
   marker.bindPopup(buildPopup(place));
+  marker.bindTooltip(place.name, { permanent: true, direction: 'bottom', offset: [0, 6], className: 'place-label' });
   markers[place.id] = marker;
 }
 
@@ -572,42 +583,35 @@ function updateDaySelect() {
 
 function renderItinerary() {
   const cont = document.getElementById('itin-content');
-  const allEmpty = places.length === 0;
-  if (allEmpty) {
+  if (places.length === 0) {
     cont.innerHTML = `<div class="itin-empty">
       <div class="itin-empty-icon">📍</div>
       Aucun lieu ajouté.<br>Clique sur la carte et remplis le formulaire pour commencer.
     </div>`;
+    renderDayStrip();
     return;
   }
-  let html = '';
-  for (let d = 1; d <= numDays; d++) {
-    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
-    if (dp.length === 0) continue;
-    let dayKm = 0;
-    for (let i = 0; i < dp.length-1; i++) dayKm += haversine(dp[i].lat, dp[i].lng, dp[i+1].lat, dp[i+1].lng);
-    html += `<div class="itin-day-section">
-      <div class="itin-day-header">
-        <div class="itin-day-title">Jour ${d}</div>
-        <div class="itin-day-dist">${dp.length} lieu${dp.length>1?'x':''} &middot; ~${dayKm} km</div>
-      </div>`;
-    dp.forEach((p, i) => {
-      const color = CAT_COLORS[p.cat] || '#6B7280';
-      const next = dp[i+1];
-      const dist = next ? haversine(p.lat, p.lng, next.lat, next.lng) : null;
-      html += `<div class="itin-place-item" onclick="focusPlace(${p.id})">
-        <div class="itin-num" style="background:${color}">${i+1}</div>
-        <div class="itin-info">
-          <div class="itin-name">${p.name}</div>
-          <div class="itin-meta">${p.cat}${p.note ? ' &middot; ' + p.note : ''}</div>
-        </div>
-        <div class="itin-del" onclick="event.stopPropagation();deletePlace(${p.id})" title="Supprimer">&times;</div>
+  const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
+  let html = '<div style="padding:14px 20px;">';
+  ordered.forEach((p, i) => {
+    const color = CAT_COLORS[p.cat] || '#6B7280';
+    const next = ordered[i + 1];
+    const dist = next ? haversine(p.lat, p.lng, next.lat, next.lng) : null;
+    const isBoat = next && next.transport === 'boat';
+    html += `<div class="itin-place-item" onclick="focusPlace(${p.id})">
+      <div class="itin-num" style="background:${color}">${i + 1}</div>
+      <div class="itin-info">
+        <div class="itin-name">${p.name}</div>
+        <div class="itin-meta">Jour ${p.day} &middot; ${p.cat}${p.note ? ' &middot; ' + p.note : ''}</div>
       </div>
-      ${dist ? `<div class="itin-dist-arrow">&#8595; ${dist} km</div>` : ''}`;
-    });
-    html += '</div>';
-  }
-  cont.innerHTML = html || `<div class="itin-empty"><div class="itin-empty-icon">📍</div>Aucun lieu pour ces jours.</div>`;
+      <div class="itin-del" onclick="event.stopPropagation();deletePlace(${p.id})" title="Supprimer">&times;</div>
+    </div>
+    ${dist ? `<div class="itin-dist-arrow" style="color:${isBoat ? '#2A7F8F' : 'rgba(255,255,255,0.25)'}">
+      ${isBoat ? '🚢' : '↓'} ${dist} km${isBoat ? ' · bateau' : ''}
+    </div>` : ''}`;
+  });
+  html += '</div>';
+  cont.innerHTML = html;
   renderDayStrip();
 }
 
