@@ -71,16 +71,16 @@
 
     #sidebar {
       position: fixed; bottom: 0; left: 0; right: 0; height: 85vh;
-      z-index: 1020;
+      z-index: 800;
       transform: translateY(100%); border-radius: 18px 18px 0 0;
       transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
     }
     #sidebar.open { transform: translateY(0); }
 
-    #backdrop { z-index: 1010; }
+    #backdrop { z-index: 790; }
     #backdrop.visible { display: block; }
 
-    #fab { display: flex; z-index: 1030; }
+    #fab { display: flex; z-index: 810; }
 
     #mobile-handle { display: flex; }
 
@@ -1083,18 +1083,25 @@ function switchTab(tab) {
 
 
 function toggleSidebar() {
-  const isOpen = document.getElementById('sidebar').classList.contains('open');
-  isOpen ? closeSidebar() : openSidebar();
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
 }
 function openSidebar() {
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('backdrop').classList.add('visible');
-  document.getElementById('fab').textContent = '✕';
+  document.getElementById('fab').style.display = 'none';
+  document.getElementById('map-controls').style.visibility = 'hidden';
+  document.getElementById('route-legend').style.visibility = 'hidden';
+  const banner = document.getElementById('click-mode-banner');
+  if (banner) banner.style.visibility = 'hidden';
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('backdrop').classList.remove('visible');
-  document.getElementById('fab').textContent = '＋';
+  document.getElementById('fab').style.display = '';
+  document.getElementById('map-controls').style.visibility = '';
+  document.getElementById('route-legend').style.visibility = '';
+  const banner = document.getElementById('click-mode-banner');
+  if (banner) banner.style.visibility = '';
 }
 
 window.addEventListener('DOMContentLoaded', initMap);
