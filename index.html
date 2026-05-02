@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bali — Planificateur d'itinéraire</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;1,400&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sand: #F5EFE0;
+    --sand-dark: #EBE0C8;
+    --ocean: #2A7F8F;
+    --ocean-light: #3A9AAB;
+    --ocean-dark: #1A5F6F;
+    --night: #1A1F2E;
+    --night-light: #242B3D;
+    --text: #1A1F2E;
+    --text-muted: #6B7280;
+    --white: #FFFFFF;
+    --accent: #E8714A;
+    --accent-light: #F08B68;
+    --green: #4A8C5C;
+    --temple: #5B6EAF;
+    --nature: #4A8C5C;
+    --beach: #E8714A;
+    --food: #C4853A;
+    --activity: #9B5EA6;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(26,31,46,0.12);
+  }
+
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(--text); }
+
+  #app { display: grid; grid-template-columns: 380px 1fr; height: 100vh; }
+
+  /* SIDEBAR */
+  #sidebar {
+    background: var(--night);
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  #sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .app-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--white);
+    letter-spacing: 0.02em;
+  }
+  .app-title span { color: var(--accent-light); font-style: italic; }
+  .app-sub { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; padding: 12px 20px 0; flex-shrink: 0; }
+  .tab {
+    flex: 1; padding: 8px 6px; font-size: 12px; font-weight: 500; text-align: center;
+    border: none; border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em; text-transform: uppercase;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5);
+  }
+  .tab.active { background: var(--night-light); color: var(--white); }
+  .tab:hover:not(.active) { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
+
+  /* PANELS */
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 0; }
+  .panel.active { display: flex; flex-direction: column; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+  /* ADD PLACE PANEL */
+  #panel-add { padding: 16px 20px; }
+
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { font-size: 12px; color: rgba(255,255,255,0.6); display: block; margin-bottom: 5px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--white);
+    font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: rgba(255,255,255,0.35);
+  }
+  .form-group input::placeholder, .form-group textarea::placeholder { color: rgba(255,255,255,0.25); }
+  .form-group select option { background: var(--night); color: var(--white); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+
+  .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .cat-btn {
+    padding: 8px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 11px;
+    font-weight: 500; cursor: pointer; text-align: center; transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .cat-btn.selected { color: white; border-color: transparent; }
+  .cat-btn[data-cat="Temple"].selected { background: var(--temple); }
+  .cat-btn[data-cat="Nature"].selected { background: var(--nature); }
+  .cat-btn[data-cat="Plage"].selected { background: var(--beach); }
+  .cat-btn[data-cat="Nourriture"].selected { background: var(--food); }
+  .cat-btn[data-cat="Activité"].selected { background: var(--activity); }
+  .cat-btn[data-cat="Autre"].selected { background: #666; }
+
+  .map-hint {
+    background: rgba(42,127,143,0.2); border: 1px solid rgba(42,127,143,0.4);
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; color: rgba(255,255,255,0.7);
+    margin-bottom: 14px; line-height: 1.5;
+  }
+  .map-hint strong { color: var(--ocean-light); }
+
+  #coords-display {
+    background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 12px;
+    font-size: 12px; color: rgba(255,255,255,0.5); font-family: monospace; margin-bottom: 14px;
+    min-height: 32px; display: flex; align-items: center; gap: 8px;
+  }
+  #coords-display.has-coords { color: var(--ocean-light); }
+  .coord-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ocean-light); flex-shrink: 0; }
+
+  .btn-primary {
+    width: 100%; padding: 11px; background: var(--ocean); border: none; border-radius: 8px;
+    color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s; letter-spacing: 0.02em;
+  }
+  .btn-primary:hover { background: var(--ocean-light); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* DAY MANAGER */
+  .day-strip {
+    padding: 12px 20px; background: var(--night-light); border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0;
+  }
+  .day-chip {
+    padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+  }
+  .day-chip.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .day-chip:hover:not(.active) { background: rgba(255,255,255,0.12); color: white; }
+  .day-add {
+    padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px dashed rgba(255,255,255,0.25); background: transparent;
+    color: rgba(255,255,255,0.4); font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .day-add:hover { border-color: rgba(255,255,255,0.5); color: rgba(255,255,255,0.7); }
+
+  /* ITINERARY LIST */
+  #panel-itinerary { padding: 0; }
+
+  .itin-day-section { padding: 14px 20px; }
+  .itin-day-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .itin-day-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
+  .itin-day-dist { font-size: 11px; color: rgba(255,255,255,0.35); }
+
+  .itin-place-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+    background: rgba(255,255,255,0.04); border-radius: 8px; margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.06); transition: all 0.15s;
+    cursor: pointer;
+  }
+  .itin-place-item:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+  .itin-num {
+    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: white;
+  }
+  .itin-info { flex: 1; min-width: 0; }
+  .itin-name { font-size: 13px; font-weight: 500; color: white; }
+  .itin-meta { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .itin-dist-arrow { font-size: 10px; color: rgba(255,255,255,0.25); text-align: center; padding: 2px 0 2px 32px; }
+  .itin-del {
+    font-size: 14px; color: rgba(255,255,255,0.25); cursor: pointer; padding: 2px 4px;
+    border-radius: 4px; transition: all 0.15s; line-height: 1; flex-shrink: 0;
+  }
+  .itin-del:hover { background: rgba(232,113,74,0.3); color: var(--accent-light); }
+
+  .itin-empty { padding: 40px 20px; text-align: center; color: rgba(255,255,255,0.25); font-size: 13px; line-height: 1.7; }
+  .itin-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* STATS BAR */
+  .stats-bar {
+    padding: 14px 20px; background: rgba(255,255,255,0.04);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; flex-shrink: 0;
+  }
+  .stat { text-align: center; }
+  .stat-val { font-size: 20px; font-weight: 600; color: var(--ocean-light); }
+  .stat-lbl { font-size: 10px; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+  /* MAP */
+  #map { flex: 1; height: 100%; z-index: 1; }
+
+  /* MAP CONTROLS OVERLAY */
+  #map-controls {
+    position: absolute; top: 16px; right: 16px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .map-ctrl-btn {
+    background: var(--night); color: white; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s; white-space: nowrap;
+    box-shadow: var(--shadow);
+  }
+  .map-ctrl-btn.active { background: var(--ocean); }
+  .map-ctrl-btn:hover:not(.active) { background: var(--night-light); }
+
+  #click-mode-banner {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    background: var(--ocean-dark); color: white; padding: 10px 20px; border-radius: 999px;
+    font-size: 13px; font-weight: 500; box-shadow: var(--shadow); display: none;
+    white-space: nowrap;
+  }
+  #click-mode-banner.visible { display: block; }
+
+  /* LEAFLET OVERRIDES */
+  .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--shadow); font-family: 'DM Sans', sans-serif; }
+  .leaflet-popup-content { margin: 12px 16px; }
+  .popup-name { font-size: 14px; font-weight: 600; color: var(--night); }
+  .popup-cat { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .popup-note { font-size: 12px; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+  .popup-day { font-size: 11px; margin-top: 8px; }
+  .popup-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .popup-btn {
+    padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer;
+    border: none; font-family: 'DM Sans', sans-serif; transition: all 0.12s;
+  }
+  .popup-btn-add { background: var(--ocean); color: white; }
+  .popup-btn-add:hover { background: var(--ocean-light); }
+  .popup-btn-del { background: #fee2e2; color: #991b1b; }
+  .popup-btn-del:hover { background: #fecaca; }
+  .popup-btn-move { background: #f3f4f6; color: #374151; }
+  .popup-btn-move:hover { background: #e5e7eb; }
+
+  .custom-marker {
+    width: 28px; height: 28px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
+    border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .custom-marker-inner { transform: rotate(45deg); font-size: 12px; font-weight: 700; color: white; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div class="app-title">Bali <span>Planner</span></div>
+      <div class="app-sub">Planificateur d'itinéraire</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('add')">Ajouter</button>
+      <button class="tab" onclick="switchTab('itinerary')">Itinéraire</button>
+    </div>
+
+    <div id="panel-add" class="panel active">
+      <div class="map-hint">
+        <strong>Mode clic actif :</strong> clique sur la carte pour placer un épingle, puis remplis le formulaire ci-dessous.
+      </div>
+
+      <div id="coords-display">
+        <span id="coords-text">Clique sur la carte pour choisir un emplacement...</span>
+      </div>
+
+      <div class="form-group">
+        <label>Nom du lieu *</label>
+        <input type="text" id="place-name" placeholder="Ex: Tegalalang Rice Terraces"/>
+      </div>
+
+      <div class="form-group">
+        <label>Catégorie</label>
+        <div class="cat-grid">
+          <button class="cat-btn selected" data-cat="Temple" onclick="selectCat(this)">Temple</button>
+          <button class="cat-btn" data-cat="Nature" onclick="selectCat(this)">Nature</button>
+          <button class="cat-btn" data-cat="Plage" onclick="selectCat(this)">Plage</button>
+          <button class="cat-btn" data-cat="Nourriture" onclick="selectCat(this)">Resto</button>
+          <button class="cat-btn" data-cat="Activité" onclick="selectCat(this)">Activité</button>
+          <button class="cat-btn" data-cat="Autre" onclick="selectCat(this)">Autre</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Jour de l'itinéraire</label>
+        <select id="place-day"></select>
+      </div>
+
+      <div class="form-group">
+        <label>Notes (optionnel)</label>
+        <textarea id="place-note" placeholder="Heures d'ouverture, conseils..."></textarea>
+      </div>
+
+      <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
+        Ajouter à l'itinéraire
+      </button>
+    </div>
+
+    <div id="panel-itinerary" class="panel">
+      <div class="day-strip" id="day-strip"></div>
+      <div style="flex:1;overflow-y:auto;" id="itin-scroll">
+        <div id="itin-content"></div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-val" id="stat-lieux">0</div><div class="stat-lbl">Lieux</div></div>
+      <div class="stat"><div class="stat-val" id="stat-jours">1</div><div class="stat-lbl">Jours</div></div>
+      <div class="stat"><div class="stat-val" id="stat-km">0</div><div class="stat-lbl">km total</div></div>
+    </div>
+  </div>
+
+  <div style="position:relative;flex:1;">
+    <div id="map"></div>
+    <div id="map-controls">
+      <button class="map-ctrl-btn active" id="btn-satellite" onclick="setLayer('streets')">Carte</button>
+      <button class="map-ctrl-btn" id="btn-topo" onclick="setLayer('topo')">Relief</button>
+      <button class="map-ctrl-btn" id="btn-route" onclick="toggleRoute()">Afficher route</button>
+    </div>
+    <div id="click-mode-banner" class="visible">Cliquez sur la carte pour placer un lieu</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CAT_COLORS = {
+  Temple: '#5B6EAF', Nature: '#4A8C5C', Plage: '#E8714A',
+  Nourriture: '#C4853A', Activité: '#9B5EA6', Autre: '#6B7280'
+};
+
+let map, tempMarker, pendingCoords = null;
+let places = [];
+let numDays = 3;
+let currentDay = 1;
+let showRoute = false;
+let routeLayer = null;
+let markers = {};
+let currentLayer = 'streets';
+let tileLayer;
+
+const BALI_CENTER = [-8.4095, 115.1889];
+
+function initMap() {
+  map = L.map('map', { zoomControl: true, center: BALI_CENTER, zoom: 10 });
+  tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', function(e) {
+    pendingCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+    if (tempMarker) map.removeLayer(tempMarker);
+    tempMarker = L.circleMarker([pendingCoords.lat, pendingCoords.lng], {
+      radius: 10, color: '#2A7F8F', fillColor: '#2A7F8F', fillOpacity: 0.5, weight: 2
+    }).addTo(map);
+    document.getElementById('coords-display').classList.add('has-coords');
+    document.getElementById('coords-text').textContent =
+      pendingCoords.lat.toFixed(5) + ', ' + pendingCoords.lng.toFixed(5);
+    document.getElementById('btn-add').disabled = false;
+    if (document.getElementById('panel-add').classList.contains('active')) {
+      document.getElementById('place-name').focus();
+    }
+  });
+
+  renderDayStrip();
+  updateDaySelect();
+}
+
+function setLayer(type) {
+  if (tileLayer) map.removeLayer(tileLayer);
+  currentLayer = type;
+  if (type === 'topo') {
+    tileLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: 'OpenTopoMap', maxZoom: 17
+    });
+  } else {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    });
+  }
+  tileLayer.addTo(map);
+  document.getElementById('btn-satellite').classList.toggle('active', type === 'streets');
+  document.getElementById('btn-topo').classList.toggle('active', type === 'topo');
+}
+
+function selectCat(btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function getSelectedCat() {
+  const sel = document.querySelector('.cat-btn.selected');
+  return sel ? sel.dataset.cat : 'Autre';
+}
+
+function addPlace() {
+  const name = document.getElementById('place-name').value.trim();
+  if (!name || !pendingCoords) return;
+  const cat = getSelectedCat();
+  const day = parseInt(document.getElementById('place-day').value) || 1;
+  const note = document.getElementById('place-note').value.trim();
+  const id = Date.now();
+  const place = { id, name, cat, day, note, lat: pendingCoords.lat, lng: pendingCoords.lng };
+  places.push(place);
+  addMarker(place);
+  if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+  pendingCoords = null;
+  document.getElementById('coords-display').classList.remove('has-coords');
+  document.getElementById('coords-text').textContent = 'Clique sur la carte pour choisir un emplacement...';
+  document.getElementById('place-name').value = '';
+  document.getElementById('place-note').value = '';
+  document.getElementById('btn-add').disabled = true;
+  updateStats();
+  renderItinerary();
+  if (showRoute) drawRoute();
+}
+
+function makeIcon(place, index) {
+  const color = CAT_COLORS[place.cat] || '#6B7280';
+  const html = `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);">
+    <span style="transform:rotate(45deg);font-size:11px;font-weight:700;color:white;">${index}</span></div>`;
+  return L.divIcon({ html, className: '', iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30] });
+}
+
+function addMarker(place) {
+  const dayPlaces = places.filter(p => p.day === place.day);
+  const idx = dayPlaces.findIndex(p => p.id === place.id) + 1;
+  const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place, idx) }).addTo(map);
+  marker.bindPopup(buildPopup(place));
+  markers[place.id] = marker;
+}
+
+function buildPopup(place) {
+  const dayPlaces = places.filter(p => p.day === place.day);
+  const idx = dayPlaces.findIndex(p => p.id === place.id) + 1;
+  const dayOpts = Array.from({length: numDays}, (_,i) =>
+    `<option value="${i+1}" ${place.day===i+1?'selected':''}>Jour ${i+1}</option>`).join('');
+  return `<div class="popup-name">${place.name}</div>
+    <div class="popup-cat">${place.cat} &mdash; Jour ${place.day} &middot; Étape ${idx}</div>
+    ${place.note ? `<div class="popup-note">${place.note}</div>` : ''}
+    <div class="popup-actions">
+      <select onchange="moveToDay(${place.id},this.value)" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-family:'DM Sans',sans-serif;">${dayOpts}</select>
+      <button class="popup-btn popup-btn-del" onclick="deletePlace(${place.id})">Supprimer</button>
+    </div>`;
+}
+
+function deletePlace(id) {
+  const idx = places.findIndex(p => p.id === id);
+  if (idx < 0) return;
+  map.removeLayer(markers[id]);
+  delete markers[id];
+  places.splice(idx, 1);
+  refreshAllMarkers();
+  updateStats();
+  renderItinerary();
+  if (showRoute) drawRoute();
+  map.closePopup();
+}
+
+function moveToDay(id, day) {
+  const place = places.find(p => p.id === id);
+  if (!place) return;
+  place.day = parseInt(day);
+  refreshAllMarkers();
+  updateStats();
+  renderItinerary();
+  if (showRoute) drawRoute();
+  map.closePopup();
+}
+
+function refreshAllMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  places.forEach(place => addMarker(place));
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return Math.round(R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+function updateStats() {
+  document.getElementById('stat-lieux').textContent = places.length;
+  document.getElementById('stat-jours').textContent = numDays;
+  let km = 0;
+  for (let d = 1; d <= numDays; d++) {
+    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
+    for (let i = 0; i < dp.length-1; i++) km += haversine(dp[i].lat, dp[i].lng, dp[i+1].lat, dp[i+1].lng);
+  }
+  document.getElementById('stat-km').textContent = km;
+}
+
+function renderDayStrip() {
+  const strip = document.getElementById('day-strip');
+  strip.innerHTML = '';
+  for (let d = 1; d <= numDays; d++) {
+    const btn = document.createElement('button');
+    btn.className = 'day-chip' + (d === currentDay ? ' active' : '');
+    const n = places.filter(p => p.day === d).length;
+    btn.textContent = 'Jour ' + d + (n > 0 ? ' (' + n + ')' : '');
+    btn.onclick = () => { currentDay = d; renderDayStrip(); renderItinerary(); };
+    strip.appendChild(btn);
+  }
+  const addBtn = document.createElement('button');
+  addBtn.className = 'day-add';
+  addBtn.textContent = '+ Jour';
+  addBtn.onclick = () => {
+    numDays++;
+    renderDayStrip();
+    updateDaySelect();
+    updateStats();
+  };
+  strip.appendChild(addBtn);
+}
+
+function updateDaySelect() {
+  const sel = document.getElementById('place-day');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  for (let d = 1; d <= numDays; d++) {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = 'Jour ' + d;
+    sel.appendChild(opt);
+  }
+  if (prev && parseInt(prev) <= numDays) sel.value = prev;
+}
+
+function renderItinerary() {
+  const cont = document.getElementById('itin-content');
+  const allEmpty = places.length === 0;
+  if (allEmpty) {
+    cont.innerHTML = `<div class="itin-empty">
+      <div class="itin-empty-icon">📍</div>
+      Aucun lieu ajouté.<br>Clique sur la carte et remplis le formulaire pour commencer.
+    </div>`;
+    return;
+  }
+  let html = '';
+  for (let d = 1; d <= numDays; d++) {
+    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
+    if (dp.length === 0) continue;
+    let dayKm = 0;
+    for (let i = 0; i < dp.length-1; i++) dayKm += haversine(dp[i].lat, dp[i].lng, dp[i+1].lat, dp[i+1].lng);
+    html += `<div class="itin-day-section">
+      <div class="itin-day-header">
+        <div class="itin-day-title">Jour ${d}</div>
+        <div class="itin-day-dist">${dp.length} lieu${dp.length>1?'x':''} &middot; ~${dayKm} km</div>
+      </div>`;
+    dp.forEach((p, i) => {
+      const color = CAT_COLORS[p.cat] || '#6B7280';
+      const next = dp[i+1];
+      const dist = next ? haversine(p.lat, p.lng, next.lat, next.lng) : null;
+      html += `<div class="itin-place-item" onclick="focusPlace(${p.id})">
+        <div class="itin-num" style="background:${color}">${i+1}</div>
+        <div class="itin-info">
+          <div class="itin-name">${p.name}</div>
+          <div class="itin-meta">${p.cat}${p.note ? ' &middot; ' + p.note : ''}</div>
+        </div>
+        <div class="itin-del" onclick="event.stopPropagation();deletePlace(${p.id})" title="Supprimer">&times;</div>
+      </div>
+      ${dist ? `<div class="itin-dist-arrow">&#8595; ${dist} km</div>` : ''}`;
+    });
+    html += '</div>';
+  }
+  cont.innerHTML = html || `<div class="itin-empty"><div class="itin-empty-icon">📍</div>Aucun lieu pour ces jours.</div>`;
+  renderDayStrip();
+}
+
+function focusPlace(id) {
+  const place = places.find(p => p.id === id);
+  if (!place) return;
+  map.setView([place.lat, place.lng], 14, { animate: true });
+  if (markers[id]) markers[id].openPopup();
+}
+
+function toggleRoute() {
+  showRoute = !showRoute;
+  document.getElementById('btn-route').classList.toggle('active', showRoute);
+  if (showRoute) drawRoute(); else clearRoute();
+}
+
+function drawRoute() {
+  clearRoute();
+  const lines = [];
+  for (let d = 1; d <= numDays; d++) {
+    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
+    if (dp.length < 2) continue;
+    const latlngs = dp.map(p => [p.lat, p.lng]);
+    lines.push(L.polyline(latlngs, { color: '#E8714A', weight: 2.5, opacity: 0.7, dashArray: '6,5' }));
+  }
+  routeLayer = L.layerGroup(lines).addTo(map);
+}
+
+function clearRoute() {
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'itinerary') renderItinerary();
+}
+
+window.addEventListener('DOMContentLoaded', initMap);
+</script>
+</body>
+</html>
