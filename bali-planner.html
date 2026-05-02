@@ -354,17 +354,12 @@
         </div>
 
         <div class="form-group">
-          <label>Jour de l'itinéraire</label>
-          <select id="place-day"></select>
-        </div>
-
-        <div class="form-group">
           <label>Notes (optionnel)</label>
           <textarea id="place-note" placeholder="Heures d'ouverture, conseils..."></textarea>
         </div>
 
         <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
-          Ajouter à l'itinéraire
+          Ajouter à la carte
         </button>
       </div>
     </div>
@@ -501,6 +496,8 @@ let currentDay = 1;
 let showRoute = true;
 let routeLayer = null;
 let markers = {};
+let poiMarkers = {};
+let pois = [];
 let currentLayer = 'streets';
 let tileLayer;
 
@@ -569,23 +566,49 @@ function getSelectedCat() {
 function addPlace() {
   const name = document.getElementById('place-name').value.trim();
   if (!name || !pendingCoords) return;
-  const cat = getSelectedCat();
-  const day = parseInt(document.getElementById('place-day').value) || 1;
+  const cat  = getSelectedCat();
   const note = document.getElementById('place-note').value.trim();
-  const id = Date.now();
-  const place = { id, name, cat, day, note, lat: pendingCoords.lat, lng: pendingCoords.lng, transport: 'land' };
-  places.push(place);
-  addMarker(place);
+  const id   = Date.now();
+  const poi  = { id, name, cat, note, lat: pendingCoords.lat, lng: pendingCoords.lng };
+  pois.push(poi);
+  addPoiMarker(poi);
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
   pendingCoords = null;
   document.getElementById('coords-display').classList.remove('has-coords');
-  document.getElementById('coords-text').textContent = 'Clique sur la carte pour choisir un emplacement...';
+  document.getElementById('coords-text').textContent = 'Cherche un lieu ou clique sur la carte…';
   document.getElementById('place-name').value = '';
   document.getElementById('place-note').value = '';
+  document.getElementById('search-input').value = '';
   document.getElementById('btn-add').disabled = true;
   updateStats();
-  renderItinerary();
-  if (showRoute) drawRoute();
+}
+
+function makePoiIcon(poi) {
+  const color = CAT_COLORS[poi.cat] || '#6B7280';
+  const html = `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`;
+  return L.divIcon({ html, className: '', iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -12] });
+}
+
+function addPoiMarker(poi) {
+  const marker = L.marker([poi.lat, poi.lng], { icon: makePoiIcon(poi) }).addTo(map);
+  marker.bindPopup(`<div class="popup-name">${poi.name}</div>
+    <div class="popup-cat">${poi.cat}</div>
+    ${poi.note ? `<div class="popup-note">${poi.note}</div>` : ''}
+    <div class="popup-actions">
+      <button class="popup-btn popup-btn-del" onclick="deletePoi(${poi.id})">Supprimer</button>
+    </div>`);
+  marker.bindTooltip(poi.name, { permanent: true, direction: 'bottom', offset: [0, 4], className: 'place-label' });
+  poiMarkers[poi.id] = marker;
+}
+
+function deletePoi(id) {
+  const idx = pois.findIndex(p => p.id === id);
+  if (idx < 0) return;
+  map.removeLayer(poiMarkers[id]);
+  delete poiMarkers[id];
+  pois.splice(idx, 1);
+  updateStats();
+  map.closePopup();
 }
 
 function makeIcon(place, index) {
@@ -657,7 +680,7 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
 
 function updateStats() {
-  document.getElementById('stat-lieux').textContent = places.length;
+  document.getElementById('stat-lieux').textContent = places.length + pois.length;
   document.getElementById('stat-jours').textContent = numDays;
   const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
   let km = 0;
