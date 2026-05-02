@@ -683,14 +683,120 @@ function makePoiIcon(poi) {
   return L.divIcon({ html, className: '', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -14] });
 }
 
+function buildPoiPopup(poi) {
+  const emoji  = CAT_EMOJIS[poi.cat] || '📌';
+  const stage  = poi.stageId ? places.find(p => p.id === poi.stageId) : null;
+  const assignInfo = stage
+    ? `<span style="color:var(--ocean)">${stage.name} · Jour ${poi.dayNum}</span>`
+    : '<span style="color:#aaa">Non assigné à une étape</span>';
+
+  const stageOpts = ['<option value="">— Non assigné —</option>',
+    ...places.sort((a,b)=>a.day-b.day).map(p =>
+      `<option value="${p.id}"${poi.stageId===p.id?' selected':''}>${p.name}</option>`)
+  ].join('');
+
+  return `<div style="min-width:210px;">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+      <span style="font-size:20px;line-height:1;">${emoji}</span>
+      <div>
+        <div class="popup-name">${poi.name}</div>
+        <div class="popup-cat">${poi.cat}</div>
+      </div>
+    </div>
+    ${poi.note ? `<div class="popup-note" style="margin-bottom:8px;">${poi.note}</div>` : ''}
+    <div style="font-size:11px;color:#888;margin-bottom:4px;">${assignInfo}</div>
+    <div style="border-top:1px solid #f0f0f0;padding-top:8px;margin-top:4px;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Assigner à un jour</div>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <select id="pstage-${poi.id}" onchange="onPopupStageChange(${poi.id})" style="flex:1;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #ddd;">${stageOpts}</select>
+        <input type="number" id="pday-${poi.id}" value="${poi.dayNum||1}" min="1" style="width:44px;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #ddd;"/>
+      </div>
+    </div>
+    <div class="popup-actions" style="margin-top:8px;">
+      <button class="popup-btn popup-btn-add" onclick="assignPoiFromPopup(${poi.id})">Assigner</button>
+      <button class="popup-btn popup-btn-move" onclick="openPoiEdit(${poi.id})">Modifier</button>
+      <button class="popup-btn popup-btn-del" onclick="deletePoi(${poi.id})">Supprimer</button>
+    </div>
+  </div>`;
+}
+
+function onPopupStageChange(poiId) {
+  const stageId  = document.getElementById('pstage-' + poiId).value;
+  const dayInput = document.getElementById('pday-'   + poiId);
+  if (stageId) {
+    const stage  = places.find(p => p.id === parseInt(stageId));
+    dayInput.max = stage ? stage.duration : 99;
+  }
+}
+
+function assignPoiFromPopup(poiId) {
+  const poi = pois.find(p => p.id === poiId);
+  if (!poi) return;
+  const stageVal = document.getElementById('pstage-' + poiId).value;
+  poi.stageId    = stageVal ? parseInt(stageVal) : null;
+  poi.dayNum     = poi.stageId ? Math.max(1, parseInt(document.getElementById('pday-' + poiId).value) || 1) : null;
+  if (poiMarkers[poiId]) poiMarkers[poiId].setPopupContent(buildPoiPopup(poi));
+  renderItinerary();
+}
+
+function openPoiEdit(poiId) {
+  const poi = pois.find(p => p.id === poiId);
+  if (!poi) return;
+  const catOpts = Object.keys(CAT_EMOJIS).map(c =>
+    `<option value="${c}"${poi.cat===c?' selected':''}>${CAT_EMOJIS[c]} ${c}</option>`).join('');
+  const stageOpts = ['<option value="">— Non assigné —</option>',
+    ...places.sort((a,b)=>a.day-b.day).map(p =>
+      `<option value="${p.id}"${poi.stageId===p.id?' selected':''}>${p.name}</option>`)
+  ].join('');
+
+  const html = `<div style="min-width:220px;">
+    <div style="font-size:12px;font-weight:600;color:#1A1F2E;margin-bottom:10px;">Modifier le lieu</div>
+    <div style="margin-bottom:7px;">
+      <label style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Nom</label>
+      <input id="pedit-name-${poiId}" value="${poi.name}" style="width:100%;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid #ddd;"/>
+    </div>
+    <div style="margin-bottom:7px;">
+      <label style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Catégorie</label>
+      <select id="pedit-cat-${poiId}" style="width:100%;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid #ddd;">${catOpts}</select>
+    </div>
+    <div style="margin-bottom:7px;">
+      <label style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Description</label>
+      <textarea id="pedit-note-${poiId}" rows="2" style="width:100%;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid #ddd;resize:none;font-family:inherit;">${poi.note||''}</textarea>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Étape · Jour</label>
+      <div style="display:flex;gap:5px;">
+        <select id="pedit-stage-${poiId}" style="flex:1;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid #ddd;">${stageOpts}</select>
+        <input type="number" id="pedit-day-${poiId}" value="${poi.dayNum||1}" min="1" style="width:50px;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid #ddd;"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="popup-btn popup-btn-add" onclick="savePoiEdit(${poiId})" style="flex:1;padding:7px;">Enregistrer</button>
+      <button class="popup-btn popup-btn-del" onclick="deletePoi(${poiId})">Supprimer</button>
+    </div>
+  </div>`;
+
+  if (poiMarkers[poiId]) { poiMarkers[poiId].setPopupContent(html); poiMarkers[poiId].openPopup(); }
+}
+
+function savePoiEdit(poiId) {
+  const poi = pois.find(p => p.id === poiId);
+  if (!poi) return;
+  poi.name = document.getElementById('pedit-name-'  + poiId).value.trim() || poi.name;
+  poi.cat  = document.getElementById('pedit-cat-'   + poiId).value;
+  poi.note = document.getElementById('pedit-note-'  + poiId).value.trim();
+  const stageVal = document.getElementById('pedit-stage-' + poiId).value;
+  poi.stageId    = stageVal ? parseInt(stageVal) : null;
+  poi.dayNum     = poi.stageId ? Math.max(1, parseInt(document.getElementById('pedit-day-' + poiId).value) || 1) : null;
+  map.closePopup();
+  if (poiMarkers[poiId]) { map.removeLayer(poiMarkers[poiId]); delete poiMarkers[poiId]; }
+  addPoiMarker(poi);
+  renderItinerary();
+}
+
 function addPoiMarker(poi) {
   const marker = L.marker([poi.lat, poi.lng], { icon: makePoiIcon(poi) }).addTo(map);
-  marker.bindPopup(`<div class="popup-name">${poi.name}</div>
-    <div class="popup-cat">${poi.cat}</div>
-    ${poi.note ? `<div class="popup-note">${poi.note}</div>` : ''}
-    <div class="popup-actions">
-      <button class="popup-btn popup-btn-del" onclick="deletePoi(${poi.id})">Supprimer</button>
-    </div>`);
+  marker.bindPopup(buildPoiPopup(poi), { maxWidth: 280 });
   marker.bindTooltip(poi.name, { permanent: true, direction: 'bottom', offset: [0, 6], className: 'poi-label' });
   poiMarkers[poi.id] = marker;
 }
