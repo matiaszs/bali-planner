@@ -99,6 +99,8 @@
     flex-direction: column;
     overflow: hidden;
     z-index: 10;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
 
   #sidebar-header {
@@ -129,7 +131,7 @@
   .tab:hover:not(.active) { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 
   /* PANELS */
-  .panel { display: none; flex: 1; overflow-y: auto; padding: 0; }
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 0; overscroll-behavior: contain; }
   .panel.active { display: flex; flex-direction: column; }
   .panel::-webkit-scrollbar { width: 4px; }
   .panel::-webkit-scrollbar-track { background: transparent; }
@@ -1093,6 +1095,12 @@ function openSidebar() {
   document.getElementById('route-legend').style.visibility = 'hidden';
   const banner = document.getElementById('click-mode-banner');
   if (banner) banner.style.visibility = 'hidden';
+  if (map) {
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    map.scrollWheelZoom.disable();
+  }
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
@@ -1102,6 +1110,12 @@ function closeSidebar() {
   document.getElementById('route-legend').style.visibility = '';
   const banner = document.getElementById('click-mode-banner');
   if (banner) banner.style.visibility = '';
+  if (map) {
+    map.dragging.enable();
+    map.touchZoom.enable();
+    map.doubleClickZoom.enable();
+    map.scrollWheelZoom.enable();
+  }
 }
 
 window.addEventListener('DOMContentLoaded', initMap);
