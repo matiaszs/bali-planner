@@ -127,9 +127,9 @@
   /* SEARCH */
   .search-wrap { position: relative; }
   #search-dropdown {
-    display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    display: none; position: fixed;
     background: var(--night-light); border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 10px; z-index: 200; overflow: hidden;
+    border-radius: 10px; z-index: 9999; overflow: hidden;
     box-shadow: 0 8px 28px rgba(0,0,0,0.5);
   }
   .search-item {
@@ -417,10 +417,20 @@ const CAT_COLORS = {
 
 let searchTimeout = null;
 
+function positionDropdown() {
+  const input = document.getElementById('search-input');
+  const dd = document.getElementById('search-dropdown');
+  const rect = input.getBoundingClientRect();
+  dd.style.top   = (rect.bottom + 4) + 'px';
+  dd.style.left  = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
+}
+
 function onSearchInput(val) {
   clearTimeout(searchTimeout);
   const dd = document.getElementById('search-dropdown');
   if (val.length < 2) { dd.style.display = 'none'; return; }
+  positionDropdown();
   dd.innerHTML = '<div class="search-hint">Recherche…</div>';
   dd.style.display = 'block';
   searchTimeout = setTimeout(() => fetchPlaces(val), 380);
