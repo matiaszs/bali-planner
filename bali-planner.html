@@ -24,10 +24,15 @@
     --accent-light: #F08B68;
     --green: #4A8C5C;
     --temple: #5B6EAF;
-    --nature: #4A8C5C;
+    --nature: #16A34A;
     --beach: #E8714A;
     --food: #C4853A;
     --activity: #9B5EA6;
+    --nightclub: #7C3AED;
+    --beachclub: #0EA5E9;
+    --rizieres: #4D7C0F;
+    --shopping: #EC4899;
+    --hebergement: #64748B;
     --radius: 10px;
     --shadow: 0 4px 20px rgba(26,31,46,0.12);
   }
@@ -107,12 +112,35 @@
     font-family: 'DM Sans', sans-serif;
   }
   .cat-btn.selected { color: white; border-color: transparent; }
-  .cat-btn[data-cat="Temple"].selected { background: var(--temple); }
-  .cat-btn[data-cat="Nature"].selected { background: var(--nature); }
-  .cat-btn[data-cat="Plage"].selected { background: var(--beach); }
-  .cat-btn[data-cat="Nourriture"].selected { background: var(--food); }
-  .cat-btn[data-cat="Activité"].selected { background: var(--activity); }
-  .cat-btn[data-cat="Autre"].selected { background: #666; }
+  .cat-btn[data-cat="Plage"].selected        { background: var(--beach); }
+  .cat-btn[data-cat="Restaurant"].selected   { background: var(--food); }
+  .cat-btn[data-cat="Beach Club"].selected   { background: var(--beachclub); }
+  .cat-btn[data-cat="Boîte de nuit"].selected{ background: var(--nightclub); }
+  .cat-btn[data-cat="Rizières"].selected     { background: var(--rizieres); }
+  .cat-btn[data-cat="Temple"].selected       { background: var(--temple); }
+  .cat-btn[data-cat="Nature"].selected       { background: var(--nature); }
+  .cat-btn[data-cat="Activité"].selected     { background: var(--activity); }
+  .cat-btn[data-cat="Shopping"].selected     { background: var(--shopping); }
+  .cat-btn[data-cat="Hébergement"].selected  { background: var(--hebergement); }
+  .cat-btn[data-cat="Autre"].selected        { background: #666; }
+
+  /* SEARCH */
+  .search-wrap { position: relative; }
+  #search-dropdown {
+    display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    background: var(--night-light); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px; z-index: 200; overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  }
+  .search-item {
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.12s;
+  }
+  .search-item:last-child { border-bottom: none; }
+  .search-item:hover { background: rgba(255,255,255,0.09); }
+  .search-item-name { font-size: 13px; color: white; font-weight: 500; }
+  .search-item-sub  { font-size: 11px; color: rgba(255,255,255,0.38); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-hint { padding: 12px 14px; font-size: 12px; color: rgba(255,255,255,0.35); text-align: center; }
 
   .map-hint {
     background: rgba(42,127,143,0.2); border: 1px solid rgba(42,127,143,0.4);
@@ -287,44 +315,58 @@
     </div>
 
     <div id="panel-add" class="panel active">
-      <div class="map-hint">
-        <strong>Mode clic actif :</strong> clique sur la carte pour placer un épingle, puis remplis le formulaire ci-dessous.
+      <div class="form-group search-wrap" style="padding:16px 20px 0;">
+        <label>Rechercher un lieu</label>
+        <input type="text" id="search-input" placeholder="Tanah Lot, Potato Head, Nyang Nyang…"
+               oninput="onSearchInput(this.value)" autocomplete="off"/>
+        <div id="search-dropdown"></div>
       </div>
 
-      <div id="coords-display">
-        <span id="coords-text">Clique sur la carte pour choisir un emplacement...</span>
-      </div>
-
-      <div class="form-group">
-        <label>Nom du lieu *</label>
-        <input type="text" id="place-name" placeholder="Ex: Tegalalang Rice Terraces"/>
-      </div>
-
-      <div class="form-group">
-        <label>Catégorie</label>
-        <div class="cat-grid">
-          <button class="cat-btn selected" data-cat="Temple" onclick="selectCat(this)">Temple</button>
-          <button class="cat-btn" data-cat="Nature" onclick="selectCat(this)">Nature</button>
-          <button class="cat-btn" data-cat="Plage" onclick="selectCat(this)">Plage</button>
-          <button class="cat-btn" data-cat="Nourriture" onclick="selectCat(this)">Resto</button>
-          <button class="cat-btn" data-cat="Activité" onclick="selectCat(this)">Activité</button>
-          <button class="cat-btn" data-cat="Autre" onclick="selectCat(this)">Autre</button>
+      <div style="padding:0 20px;">
+        <div class="map-hint" style="margin-top:12px;">
+          <strong>Ou clic direct :</strong> clique sur la carte pour placer un épingle manuellement.
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Jour de l'itinéraire</label>
-        <select id="place-day"></select>
-      </div>
+        <div id="coords-display">
+          <span id="coords-text">Cherche un lieu ou clique sur la carte…</span>
+        </div>
 
-      <div class="form-group">
-        <label>Notes (optionnel)</label>
-        <textarea id="place-note" placeholder="Heures d'ouverture, conseils..."></textarea>
-      </div>
+        <div class="form-group">
+          <label>Nom du lieu *</label>
+          <input type="text" id="place-name" placeholder="Ex: Tegalalang Rice Terraces"/>
+        </div>
 
-      <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
-        Ajouter à l'itinéraire
-      </button>
+        <div class="form-group">
+          <label>Catégorie</label>
+          <div class="cat-grid">
+            <button class="cat-btn selected" data-cat="Plage"         onclick="selectCat(this)">🏖️ Plage</button>
+            <button class="cat-btn"          data-cat="Restaurant"    onclick="selectCat(this)">🍽️ Resto</button>
+            <button class="cat-btn"          data-cat="Beach Club"    onclick="selectCat(this)">🌴 Beach Club</button>
+            <button class="cat-btn"          data-cat="Boîte de nuit" onclick="selectCat(this)">🌙 Nightclub</button>
+            <button class="cat-btn"          data-cat="Rizières"      onclick="selectCat(this)">🌾 Rizières</button>
+            <button class="cat-btn"          data-cat="Temple"        onclick="selectCat(this)">⛩️ Temple</button>
+            <button class="cat-btn"          data-cat="Nature"        onclick="selectCat(this)">🌿 Nature</button>
+            <button class="cat-btn"          data-cat="Activité"      onclick="selectCat(this)">🏄 Activité</button>
+            <button class="cat-btn"          data-cat="Shopping"      onclick="selectCat(this)">🛍️ Shopping</button>
+            <button class="cat-btn"          data-cat="Hébergement"   onclick="selectCat(this)">🏨 Hôtel</button>
+            <button class="cat-btn"          data-cat="Autre"         onclick="selectCat(this)">📌 Autre</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Jour de l'itinéraire</label>
+          <select id="place-day"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Notes (optionnel)</label>
+          <textarea id="place-note" placeholder="Heures d'ouverture, conseils..."></textarea>
+        </div>
+
+        <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
+          Ajouter à l'itinéraire
+        </button>
+      </div>
     </div>
 
     <div id="panel-itinerary" class="panel">
@@ -360,9 +402,72 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const CAT_COLORS = {
-  Temple: '#5B6EAF', Nature: '#4A8C5C', Plage: '#E8714A',
-  Nourriture: '#C4853A', Activité: '#9B5EA6', Autre: '#6B7280'
+  Plage:          '#E8714A',
+  Restaurant:     '#C4853A',
+  'Beach Club':   '#0EA5E9',
+  'Boîte de nuit':'#7C3AED',
+  Rizières:       '#4D7C0F',
+  Temple:         '#5B6EAF',
+  Nature:         '#16A34A',
+  Activité:       '#9B5EA6',
+  Shopping:       '#EC4899',
+  Hébergement:    '#64748B',
+  Autre:          '#6B7280',
 };
+
+let searchTimeout = null;
+
+function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  const dd = document.getElementById('search-dropdown');
+  if (val.length < 2) { dd.style.display = 'none'; return; }
+  dd.innerHTML = '<div class="search-hint">Recherche…</div>';
+  dd.style.display = 'block';
+  searchTimeout = setTimeout(() => fetchPlaces(val), 380);
+}
+
+async function fetchPlaces(query) {
+  const dd = document.getElementById('search-dropdown');
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=6&viewbox=114.4,-9.2,116.3,-7.9&bounded=0&accept-language=fr`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
+    const data = await res.json();
+    if (!data.length) { dd.innerHTML = '<div class="search-hint">Aucun résultat</div>'; return; }
+    dd.innerHTML = data.map(r => {
+      const parts = r.display_name.split(',');
+      const name = parts[0].trim();
+      const sub  = parts.slice(1, 3).join(',').trim();
+      return `<div class="search-item" onclick="pickSearchResult(${r.lat},${r.lon},${JSON.stringify(name)})">
+        <div class="search-item-name">${name}</div>
+        <div class="search-item-sub">${sub}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    dd.innerHTML = '<div class="search-hint">Erreur réseau</div>';
+  }
+}
+
+function pickSearchResult(lat, lon, name) {
+  document.getElementById('search-dropdown').style.display = 'none';
+  document.getElementById('search-input').value = name;
+  pendingCoords = { lat: parseFloat(lat), lng: parseFloat(lon) };
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.circleMarker([pendingCoords.lat, pendingCoords.lng], {
+    radius: 10, color: '#2A7F8F', fillColor: '#2A7F8F', fillOpacity: 0.5, weight: 2
+  }).addTo(map);
+  map.setView([pendingCoords.lat, pendingCoords.lng], 15, { animate: true });
+  document.getElementById('coords-display').classList.add('has-coords');
+  document.getElementById('coords-text').textContent =
+    pendingCoords.lat.toFixed(5) + ', ' + pendingCoords.lng.toFixed(5);
+  document.getElementById('place-name').value = name;
+  document.getElementById('btn-add').disabled = false;
+  document.getElementById('place-name').focus();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap'))
+    document.getElementById('search-dropdown').style.display = 'none';
+});
 
 let map, tempMarker, pendingCoords = null;
 let places = [
