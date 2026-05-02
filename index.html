@@ -226,6 +226,16 @@
   }
   #click-mode-banner.visible { display: block; }
 
+  #route-legend {
+    position: absolute; bottom: 24px; right: 16px; z-index: 1000;
+    background: var(--night); border-radius: 8px; padding: 8px 12px;
+    display: flex; gap: 14px; box-shadow: var(--shadow);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255,255,255,0.7); }
+  .legend-line { display: inline-block; width: 22px; height: 2px; border-radius: 1px; }
+  .legend-line.land { background: repeating-linear-gradient(90deg,#E8714A 0,#E8714A 6px,transparent 6px,transparent 11px); }
+  .legend-line.boat { background: repeating-linear-gradient(90deg,#2A7F8F 0,#2A7F8F 3px,transparent 3px,transparent 13px); }
+
   /* LEAFLET OVERRIDES */
   .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--shadow); font-family: 'DM Sans', sans-serif; }
   .leaflet-popup-content { margin: 12px 16px; }
@@ -329,6 +339,10 @@
       <button class="map-ctrl-btn" id="btn-route" onclick="toggleRoute()">Afficher route</button>
     </div>
     <div id="click-mode-banner" class="visible">Cliquez sur la carte pour placer un lieu</div>
+    <div id="route-legend">
+      <span class="legend-item"><span class="legend-line land"></span>Route</span>
+      <span class="legend-item"><span class="legend-line boat"></span>Bateau</span>
+    </div>
   </div>
 </div>
 
@@ -340,10 +354,20 @@ const CAT_COLORS = {
 };
 
 let map, tempMarker, pendingCoords = null;
-let places = [];
-let numDays = 3;
+let places = [
+  { id: 1, name: 'Canggu',         cat: 'Plage',   day: 1, note: 'Point de départ', lat: -8.6522, lng: 115.1320, transport: null   },
+  { id: 2, name: 'Sidemen',        cat: 'Nature',  day: 2, note: '',                 lat: -8.4878, lng: 115.5949, transport: 'land' },
+  { id: 3, name: 'Ubud',           cat: 'Temple',  day: 3, note: '',                 lat: -8.5069, lng: 115.2625, transport: 'land' },
+  { id: 4, name: 'Munduk',         cat: 'Nature',  day: 4, note: '',                 lat: -8.2616, lng: 115.0730, transport: 'land' },
+  { id: 5, name: 'Lovina',         cat: 'Plage',   day: 5, note: '',                 lat: -8.1590, lng: 115.0261, transport: 'land' },
+  { id: 6, name: 'Îles Gili',      cat: 'Plage',   day: 6, note: 'Gili Trawangan',  lat: -8.3521, lng: 116.0388, transport: 'boat' },
+  { id: 7, name: 'Nusa Lembongan', cat: 'Plage',   day: 7, note: '',                 lat: -8.6867, lng: 115.4527, transport: 'boat' },
+  { id: 8, name: 'Nusa Penida',    cat: 'Nature',  day: 8, note: '',                 lat: -8.7276, lng: 115.5440, transport: 'land' },
+  { id: 9, name: 'Uluwatu',        cat: 'Temple',  day: 9, note: '',                 lat: -8.8291, lng: 115.0849, transport: 'land' },
+];
+let numDays = 9;
 let currentDay = 1;
-let showRoute = false;
+let showRoute = true;
 let routeLayer = null;
 let markers = {};
 let currentLayer = 'streets';
@@ -352,7 +376,7 @@ let tileLayer;
 const BALI_CENTER = [-8.4095, 115.1889];
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, center: BALI_CENTER, zoom: 10 });
+  map = L.map('map', { zoomControl: true, center: BALI_CENTER, zoom: 9 });
   tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 19
   }).addTo(map);
@@ -372,8 +396,14 @@ function initMap() {
     }
   });
 
+  places.forEach(place => addMarker(place));
+  map.fitBounds(places.map(p => [p.lat, p.lng]), { padding: [40, 40] });
   renderDayStrip();
   updateDaySelect();
+  updateStats();
+  renderItinerary();
+  drawRoute();
+  document.getElementById('btn-route').classList.add('active');
 }
 
 function setLayer(type) {
@@ -410,7 +440,7 @@ function addPlace() {
   const day = parseInt(document.getElementById('place-day').value) || 1;
   const note = document.getElementById('place-note').value.trim();
   const id = Date.now();
-  const place = { id, name, cat, day, note, lat: pendingCoords.lat, lng: pendingCoords.lng };
+  const place = { id, name, cat, day, note, lat: pendingCoords.lat, lng: pendingCoords.lng, transport: 'land' };
   places.push(place);
   addMarker(place);
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
@@ -495,11 +525,10 @@ function haversine(lat1, lng1, lat2, lng2) {
 function updateStats() {
   document.getElementById('stat-lieux').textContent = places.length;
   document.getElementById('stat-jours').textContent = numDays;
+  const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
   let km = 0;
-  for (let d = 1; d <= numDays; d++) {
-    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
-    for (let i = 0; i < dp.length-1; i++) km += haversine(dp[i].lat, dp[i].lng, dp[i+1].lat, dp[i+1].lng);
-  }
+  for (let i = 0; i < ordered.length - 1; i++)
+    km += haversine(ordered[i].lat, ordered[i].lng, ordered[i+1].lat, ordered[i+1].lng);
   document.getElementById('stat-km').textContent = km;
 }
 
@@ -594,12 +623,16 @@ function toggleRoute() {
 
 function drawRoute() {
   clearRoute();
+  const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
   const lines = [];
-  for (let d = 1; d <= numDays; d++) {
-    const dp = places.filter(p => p.day === d).sort((a,b) => a.id - b.id);
-    if (dp.length < 2) continue;
-    const latlngs = dp.map(p => [p.lat, p.lng]);
-    lines.push(L.polyline(latlngs, { color: '#E8714A', weight: 2.5, opacity: 0.7, dashArray: '6,5' }));
+  for (let i = 0; i < ordered.length - 1; i++) {
+    const from = ordered[i], to = ordered[i + 1];
+    lines.push(L.polyline(
+      [[from.lat, from.lng], [to.lat, to.lng]],
+      to.transport === 'boat'
+        ? { color: '#2A7F8F', weight: 3, opacity: 0.85, dashArray: '3,10' }
+        : { color: '#E8714A', weight: 2.5, opacity: 0.75, dashArray: '6,5' }
+    ));
   }
   routeLayer = L.layerGroup(lines).addTo(map);
 }
