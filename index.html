@@ -274,6 +274,15 @@
   }
   .place-label::before { display: none; }
 
+  .poi-label {
+    background: white; border: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18); border-radius: 3px;
+    padding: 1px 5px; font-size: 9px; font-weight: 400;
+    color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+  .poi-label::before { display: none; }
+
   /* LEAFLET OVERRIDES */
   .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--shadow); font-family: 'DM Sans', sans-serif; }
   .leaflet-popup-content { margin: 12px 16px; }
@@ -396,6 +405,20 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+const CAT_EMOJIS = {
+  Plage:          '🏖️',
+  Restaurant:     '🍽️',
+  'Beach Club':   '🌴',
+  'Boîte de nuit':'🌙',
+  Rizières:       '🌾',
+  Temple:         '⛩️',
+  Nature:         '🌿',
+  Activité:       '🏄',
+  Shopping:       '🛍️',
+  Hébergement:    '🏨',
+  Autre:          '📌',
+};
+
 const CAT_COLORS = {
   Plage:          '#E8714A',
   Restaurant:     '#C4853A',
@@ -584,9 +607,9 @@ function addPlace() {
 }
 
 function makePoiIcon(poi) {
-  const color = CAT_COLORS[poi.cat] || '#6B7280';
-  const html = `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`;
-  return L.divIcon({ html, className: '', iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -12] });
+  const emoji = CAT_EMOJIS[poi.cat] || '📌';
+  const html = `<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35));">${emoji}</div>`;
+  return L.divIcon({ html, className: '', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -14] });
 }
 
 function addPoiMarker(poi) {
@@ -597,7 +620,7 @@ function addPoiMarker(poi) {
     <div class="popup-actions">
       <button class="popup-btn popup-btn-del" onclick="deletePoi(${poi.id})">Supprimer</button>
     </div>`);
-  marker.bindTooltip(poi.name, { permanent: true, direction: 'bottom', offset: [0, 4], className: 'place-label' });
+  marker.bindTooltip(poi.name, { permanent: true, direction: 'bottom', offset: [0, 6], className: 'poi-label' });
   poiMarkers[poi.id] = marker;
 }
 
