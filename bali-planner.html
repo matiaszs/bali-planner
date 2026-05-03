@@ -405,7 +405,7 @@
     <div id="panel-add" class="panel active">
       <div class="form-group search-wrap" style="padding:16px 20px 0;">
         <label>Rechercher un lieu</label>
-        <input type="text" id="search-input" placeholder="Nom ou lien Google Maps…"
+        <input type="text" id="search-input" placeholder="Nom, adresse (Jl. …) ou lien Google Maps…"
                oninput="onSearchInput(this.value)" autocomplete="off"/>
         <div id="search-dropdown"></div>
       </div>
@@ -587,43 +587,66 @@ function parseGoogleMapsUrl(url) {
   return null;
 }
 
+// Returns true if the query looks like an Indonesian street address
+function looksLikeAddress(q) {
+  return /^(jl\.|jalan|gang|gg\.|blok|no\.|perumahan)/i.test(q.trim()) || /\bjl\b/i.test(q);
+}
+
 async function fetchPlaces(query) {
   const dd = document.getElementById('search-dropdown');
   try {
-    // Photon (Elasticsearch on OSM) — far better fuzzy matching + accent handling than Nominatim
-    // bbox = west,south,east,north covering Bali + Lombok + Gili
-    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8&lang=fr&bbox=114.4,-9.2,116.8,-7.9`;
-    const res = await fetch(photonUrl);
-    const geo = await res.json();
-    let results = (geo.features || [])
-      .filter(f => {
-        const p = f.properties;
-        return p.country_code === 'id' || !p.country_code;
-      })
-      .map(f => ({
-        lat: f.geometry.coordinates[1],
-        lon: f.geometry.coordinates[0],
-        name: f.properties.name || f.properties.street || query,
-        sub: buildPhotonSub(f.properties),
-      }));
+    let results = [];
+    const isAddr = looksLikeAddress(query);
 
-    // Fallback: Nominatim unbounded if Photon returns nothing
-    if (!results.length) {
-      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=id&accept-language=fr,en`;
+    if (isAddr) {
+      // Address mode: use Nominatim structured geocoding + append Bali for context
+      const addrQuery = query.toLowerCase().includes('bali') ? query : query + ', Bali, Indonesia';
+      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addrQuery)}&format=json&addressdetails=1&limit=6&countrycodes=id&accept-language=fr,en`;
       const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'fr,en' } });
       const nomData = await nomRes.json();
       results = nomData.map(r => {
         const a = r.address || {};
         return {
           lat: parseFloat(r.lat), lon: parseFloat(r.lon),
-          name: r.name || r.display_name.split(',')[0].trim(),
-          sub: [a.village || a.suburb, a.district || a.city || a.town, a.island || a.state].filter(Boolean).join(', '),
+          name: r.name || a.road || r.display_name.split(',')[0].trim(),
+          sub: [a.road, a.village || a.suburb, a.city || a.town].filter(Boolean).join(', ') + ' — adresse',
         };
       });
+    } else {
+      // Name mode: Photon with location bias toward Bali (no hard bbox so no misses)
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8&lang=fr&lat=-8.5&lon=115.2`;
+      const res = await fetch(photonUrl);
+      const geo = await res.json();
+      results = (geo.features || [])
+        .filter(f => f.properties.country_code === 'id' || !f.properties.country_code)
+        .map(f => ({
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0],
+          name: f.properties.name || f.properties.street || query,
+          sub: buildPhotonSub(f.properties),
+        }));
+
+      // Fallback: Nominatim if Photon returned nothing
+      if (!results.length) {
+        const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=id&accept-language=fr,en`;
+        const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'fr,en' } });
+        const nomData = await nomRes.json();
+        results = nomData.map(r => {
+          const a = r.address || {};
+          return {
+            lat: parseFloat(r.lat), lon: parseFloat(r.lon),
+            name: r.name || r.display_name.split(',')[0].trim(),
+            sub: [a.village || a.suburb, a.district || a.city || a.town, a.island || a.state].filter(Boolean).join(', '),
+          };
+        });
+      }
     }
 
     dd.innerHTML = '';
-    if (!results.length) { dd.innerHTML = '<div class="search-hint">Aucun résultat trouvé</div>'; return; }
+    if (!results.length) {
+      dd.innerHTML = `<div class="search-hint">Introuvable — colle l'adresse (Jl. …) ou un lien Google Maps (bouton Partager)</div>`;
+      return;
+    }
     results.forEach(r => {
       const item = document.createElement('div');
       item.className = 'search-item';
