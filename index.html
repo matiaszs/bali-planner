@@ -405,7 +405,7 @@
     <div id="panel-add" class="panel active">
       <div class="form-group search-wrap" style="padding:16px 20px 0;">
         <label>Rechercher un lieu</label>
-        <input type="text" id="search-input" placeholder="Tanah Lot, Potato Head, Nyang Nyang…"
+        <input type="text" id="search-input" placeholder="Nom ou lien Google Maps…"
                oninput="onSearchInput(this.value)" autocomplete="off"/>
         <div id="search-dropdown"></div>
       </div>
@@ -541,9 +541,50 @@ function onSearchInput(val) {
   const dd = document.getElementById('search-dropdown');
   if (val.length < 2) { dd.style.display = 'none'; return; }
   positionDropdown();
-  dd.innerHTML = '<div class="search-hint">Recherche…</div>';
   dd.style.display = 'block';
+
+  // Detect Google Maps URL pasted in the field
+  if (val.includes('google.com/maps') || val.includes('goo.gl/maps') || val.includes('maps.app.goo.gl')) {
+    dd.innerHTML = '';
+    const parsed = parseGoogleMapsUrl(val);
+    if (parsed) {
+      const item = document.createElement('div');
+      item.className = 'search-item';
+      item.innerHTML = `<div class="search-item-name">${parsed.name}</div><div class="search-item-sub">📍 Depuis lien Google Maps</div>`;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        pickSearchResult(parsed.lat, parsed.lon, parsed.name);
+      });
+      dd.appendChild(item);
+    } else {
+      dd.innerHTML = '<div class="search-hint">Lien court non supporté — dans Google Maps : Partager → Copier le lien (lien long)</div>';
+    }
+    return;
+  }
+
+  dd.innerHTML = '<div class="search-hint">Recherche…</div>';
   searchTimeout = setTimeout(() => fetchPlaces(val), 380);
+}
+
+function parseGoogleMapsUrl(url) {
+  // Format: /maps/place/Name/@lat,lng,zoom  (standard share link)
+  let m = url.match(/\/maps\/place\/([^/@?]+)\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) {
+    const name = decodeURIComponent(m[1].replace(/\+/g, ' ')).replace(/\+/g, ' ');
+    return { lat: parseFloat(m[2]), lon: parseFloat(m[3]), name };
+  }
+  // Format: /maps/@lat,lng,zoom  (no place name)
+  m = url.match(/\/maps\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) {
+    return { lat: parseFloat(m[1]), lon: parseFloat(m[2]), name: 'Lieu sélectionné' };
+  }
+  // Format: ?q=lat,lng
+  m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) {
+    return { lat: parseFloat(m[1]), lon: parseFloat(m[2]), name: 'Lieu sélectionné' };
+  }
+  // Format: ?q=Place+Name (no coords extractable)
+  return null;
 }
 
 async function fetchPlaces(query) {
