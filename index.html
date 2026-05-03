@@ -639,12 +639,35 @@ function initMap() {
     }
   });
 
+  loadFromStorage();
   places.forEach(place => addMarker(place));
+  pois.forEach(poi => addPoiMarker(poi));
   map.fitBounds(places.map(p => [p.lat, p.lng]), { padding: [40, 40] });
   updateStageSelect();
   updateStats();
   drawRoute();
   document.getElementById('btn-route').classList.add('active');
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem('bali_pois', JSON.stringify(pois));
+    const durations = {};
+    places.forEach(p => { durations[p.id] = p.duration; });
+    localStorage.setItem('bali_durations', JSON.stringify(durations));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const savedPois = localStorage.getItem('bali_pois');
+    if (savedPois) pois = JSON.parse(savedPois);
+    const savedDur = localStorage.getItem('bali_durations');
+    if (savedDur) {
+      const durations = JSON.parse(savedDur);
+      places.forEach(p => { if (durations[p.id] != null) p.duration = durations[p.id]; });
+    }
+  } catch(e) {}
 }
 
 const TILE_LAYERS = {
@@ -697,6 +720,7 @@ function addPlace() {
   document.getElementById('search-input').value = '';
   document.getElementById('btn-add').disabled = true;
   updateStats();
+  saveToStorage();
   if (stageId) { switchTabDirect('itinerary'); }
 }
 
@@ -798,6 +822,7 @@ function assignPoiFromPopup(poiId) {
   poi.stageId    = stageVal ? parseInt(stageVal) : null;
   poi.dayNum     = poi.stageId ? Math.max(1, parseInt(document.getElementById('pday-' + poiId).value) || 1) : null;
   if (poiMarkers[poiId]) poiMarkers[poiId].setPopupContent(buildPoiPopup(poi));
+  saveToStorage();
   renderItinerary();
 }
 
@@ -853,6 +878,7 @@ function savePoiEdit(poiId) {
   map.closePopup();
   if (poiMarkers[poiId]) { map.removeLayer(poiMarkers[poiId]); delete poiMarkers[poiId]; }
   addPoiMarker(poi);
+  saveToStorage();
   renderItinerary();
 }
 
@@ -871,6 +897,7 @@ function deletePoi(id) {
   delete poiMarkers[id];
   pois.splice(idx, 1);
   updateStats();
+  saveToStorage();
   map.closePopup();
   if (hadStage) renderItinerary();
 }
@@ -890,6 +917,7 @@ function saveNote(poiId) {
   if (!poi) return;
   const input = document.getElementById('note-input-' + poiId);
   poi.note = input ? input.value.trim() : '';
+  saveToStorage();
   if (poiMarkers[poiId]) poiMarkers[poiId].setPopupContent(
     `<div class="popup-name">${poi.name}</div><div class="popup-cat">${poi.cat}</div>
      ${poi.note ? `<div class="popup-note">${poi.note}</div>` : ''}
@@ -904,6 +932,7 @@ function setDuration(stageId, value) {
   if (!stage) return;
   stage.duration = Math.max(1, parseInt(value) || 1);
   updateStats();
+  saveToStorage();
   renderItinerary();
 }
 
