@@ -543,21 +543,20 @@ function onSearchInput(val) {
   positionDropdown();
   dd.style.display = 'block';
 
-  // Detect Google Maps URL pasted in the field
-  if (val.includes('google.com/maps') || val.includes('goo.gl/maps') || val.includes('maps.app.goo.gl')) {
-    dd.innerHTML = '';
+  // Detect any Google Maps URL or short link
+  const isGoogleUrl = val.includes('google.com/maps') || val.includes('goo.gl/maps')
+    || val.includes('maps.app.goo.gl') || val.includes('share.google')
+    || val.includes('maps.google');
+  if (isGoogleUrl) {
+    dd.style.display = 'block';
     const parsed = parseGoogleMapsUrl(val);
     if (parsed) {
-      const item = document.createElement('div');
-      item.className = 'search-item';
-      item.innerHTML = `<div class="search-item-name">${parsed.name}</div><div class="search-item-sub">📍 Depuis lien Google Maps</div>`;
-      item.addEventListener('mousedown', e => {
-        e.preventDefault();
-        pickSearchResult(parsed.lat, parsed.lon, parsed.name);
-      });
-      dd.appendChild(item);
+      dd.innerHTML = '';
+      showGoogleMapsResult(dd, parsed);
     } else {
-      dd.innerHTML = '<div class="search-hint">Lien court non supporté — dans Google Maps : Partager → Copier le lien (lien long)</div>';
+      // Short link — try to resolve via CORS proxy
+      dd.innerHTML = '<div class="search-hint">Résolution du lien…</div>';
+      resolveShortGoogleUrl(dd, val);
     }
     return;
   }
@@ -585,6 +584,37 @@ function parseGoogleMapsUrl(url) {
   }
   // Format: ?q=Place+Name (no coords extractable)
   return null;
+}
+
+function showGoogleMapsResult(dd, parsed) {
+  dd.innerHTML = '';
+  const item = document.createElement('div');
+  item.className = 'search-item';
+  item.innerHTML = `<div class="search-item-name">${parsed.name}</div><div class="search-item-sub">📍 Depuis lien Google Maps</div>`;
+  item.addEventListener('mousedown', e => {
+    e.preventDefault();
+    pickSearchResult(parsed.lat, parsed.lon, parsed.name);
+  });
+  dd.appendChild(item);
+}
+
+async function resolveShortGoogleUrl(dd, url) {
+  try {
+    // Use allorigins CORS proxy to follow the redirect and get the final URL
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    const finalUrl = (data.status && data.status.url) || '';
+    const parsed = parseGoogleMapsUrl(finalUrl);
+    if (parsed) {
+      showGoogleMapsResult(dd, parsed);
+      return;
+    }
+  } catch(e) {}
+  dd.innerHTML = '<div class="search-hint">Lien court non résolu — ouvre le lien dans Safari, copie l\'URL depuis la barre d\'adresse et colle-la ici</div>';
 }
 
 // Returns true if the query looks like an Indonesian street address
