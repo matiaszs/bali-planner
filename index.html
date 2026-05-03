@@ -393,8 +393,18 @@
       </div>
     </div>
     <div id="sidebar-header">
-      <div class="app-title">Bali <span>Planner</span></div>
-      <div class="app-sub">Planificateur d'itinéraire</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div>
+          <div class="app-title">Bali <span>Planner</span></div>
+          <div class="app-sub">Planificateur d'itinéraire</div>
+        </div>
+        <button id="btn-share" onclick="copyShareLink()" style="
+          margin-top:4px;flex-shrink:0;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
+          background:rgba(255,255,255,0.07);color:white;font-size:11px;font-weight:500;cursor:pointer;
+          white-space:nowrap;transition:all 0.2s;">
+          Partager
+        </button>
+      </div>
     </div>
 
     <div class="tabs">
@@ -792,6 +802,9 @@ function saveToStorage() {
 }
 
 function loadFromStorage() {
+  // Priority 1: shared URL hash (someone opened a shared link)
+  if (loadFromShareHash()) return;
+  // Priority 2: localStorage (own device, previous session)
   try {
     const savedPois = localStorage.getItem('bali_pois');
     if (savedPois) pois = JSON.parse(savedPois);
@@ -801,6 +814,41 @@ function loadFromStorage() {
       places.forEach(p => { if (durations[p.id] != null) p.duration = durations[p.id]; });
     }
   } catch(e) {}
+}
+
+function loadFromShareHash() {
+  try {
+    const hash = location.hash;
+    if (!hash.startsWith('#share=')) return false;
+    const data = JSON.parse(decodeURIComponent(atob(hash.slice(7))));
+    if (data.pois)      pois = data.pois;
+    if (data.durations) places.forEach(p => { if (data.durations[p.id] != null) p.duration = data.durations[p.id]; });
+    // Also persist to localStorage so refresh keeps it
+    saveToStorage();
+    // Clean the hash from the URL without reloading
+    history.replaceState(null, '', location.pathname);
+    return true;
+  } catch(e) { return false; }
+}
+
+function generateShareUrl() {
+  const durations = {};
+  places.forEach(p => { durations[p.id] = p.duration; });
+  const payload = btoa(encodeURIComponent(JSON.stringify({ pois, durations })));
+  return location.origin + location.pathname + '#share=' + payload;
+}
+
+function copyShareLink() {
+  const url = generateShareUrl();
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('btn-share');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Lien copié !';
+    btn.style.background = 'rgba(42,127,143,0.5)';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2500);
+  }).catch(() => {
+    prompt('Copie ce lien :', url);
+  });
 }
 
 const TILE_LAYERS = {
