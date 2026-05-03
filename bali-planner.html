@@ -1084,15 +1084,34 @@ function toggleRoute() {
   if (showRoute) drawRoute(); else clearRoute();
 }
 
+const BOAT_WAYPOINTS = {
+  '5-6': [ // Lovina → Îles Gili : mer de Bali au nord → détroit de Lombok
+    [-8.05, 115.20],
+    [-8.00, 115.55],
+    [-8.05, 115.78],
+    [-8.15, 115.88],
+    [-8.28, 116.00],
+  ],
+  '6-7': [ // Gili → Nusa Lembongan : descend le détroit → contourne Nusa Penida par le sud
+    [-8.52, 116.00],
+    [-8.78, 115.75],
+    [-8.88, 115.52],
+    [-8.82, 115.44],
+  ],
+};
+
 function drawRoute() {
   clearRoute();
   const ordered = [...places].sort((a, b) => a.day !== b.day ? a.day - b.day : a.id - b.id);
   const lines = [];
   for (let i = 0; i < ordered.length - 1; i++) {
     const from = ordered[i], to = ordered[i + 1];
-    lines.push(L.polyline(
-      [[from.lat, from.lng], [to.lat, to.lng]],
-      to.transport === 'boat'
+    const isBoat = to.transport === 'boat';
+    const key = `${from.id}-${to.id}`;
+    const waypoints = isBoat && BOAT_WAYPOINTS[key] ? BOAT_WAYPOINTS[key] : [];
+    const latlngs = [[from.lat, from.lng], ...waypoints, [to.lat, to.lng]];
+    lines.push(L.polyline(latlngs,
+      isBoat
         ? { color: '#2A7F8F', weight: 3, opacity: 0.85, dashArray: '3,10' }
         : { color: '#E8714A', weight: 2.5, opacity: 0.75, dashArray: '6,5' }
     ));
