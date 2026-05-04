@@ -760,7 +760,64 @@ let tileLayer;
 
 const BALI_CENTER = [-8.4095, 115.1889];
 
-function initMap() {
+const FIREBASE_URL = 'https://bali-planner-aadd9-default-rtdb.firebaseio.com';
+let _lastCloudSave = 0;
+let _cloudSource = null;
+
+async function saveToCloud() {
+  try {
+    _lastCloudSave = Date.now();
+    const durations = {};
+    places.forEach(p => { durations[p.id] = p.duration; });
+    await fetch(`${FIREBASE_URL}/bali.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pois, durations })
+    });
+  } catch(e) {}
+}
+
+async function loadFromCloud() {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/bali.json`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data || !Array.isArray(data.pois)) return false;
+    pois = data.pois;
+    if (data.durations) places.forEach(p => { if (data.durations[p.id] != null) p.duration = data.durations[p.id]; });
+    return true;
+  } catch(e) { return false; }
+}
+
+function startCloudSync() {
+  if (_cloudSource) _cloudSource.close();
+  _cloudSource = new EventSource(`${FIREBASE_URL}/bali.json`);
+  _cloudSource.addEventListener('put', e => {
+    try {
+      if (Date.now() - _lastCloudSave < 4000) return; // ignore echo of our own save
+      const payload = JSON.parse(e.data);
+      const data = payload && payload.data;
+      if (!data || !Array.isArray(data.pois)) return;
+      pois = data.pois;
+      if (data.durations) places.forEach(p => { if (data.durations[p.id] != null) p.duration = data.durations[p.id]; });
+      // Refresh map markers
+      Object.values(poiMarkers).forEach(m => { try { map.removeLayer(m); } catch(e){} });
+      poiMarkers = {};
+      pois.forEach(poi => addPoiMarker(poi));
+      updatePoiVisibility();
+      updateStats();
+      renderItinerary();
+      // Persist locally too
+      try {
+        localStorage.setItem('bali_pois', JSON.stringify(pois));
+        const dur = {}; places.forEach(p => { dur[p.id] = p.duration; });
+        localStorage.setItem('bali_durations', JSON.stringify(dur));
+      } catch(e) {}
+    } catch(err) {}
+  });
+}
+
+async function initMap() {
   map = L.map('map', { zoomControl: true, center: BALI_CENTER, zoom: 9 });
   tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 19
@@ -783,7 +840,7 @@ function initMap() {
     }
   });
 
-  loadFromStorage();
+  await loadFromStorage();
   places.forEach(place => addMarker(place));
   pois.forEach(poi => addPoiMarker(poi));
   map.fitBounds(places.map(p => [p.lat, p.lng]), { padding: [40, 40] });
@@ -792,6 +849,7 @@ function initMap() {
   updateStats();
   drawRoute();
   document.getElementById('btn-route').classList.add('active');
+  startCloudSync();
 }
 
 function saveToStorage() {
@@ -801,19 +859,33 @@ function saveToStorage() {
     places.forEach(p => { durations[p.id] = p.duration; });
     localStorage.setItem('bali_durations', JSON.stringify(durations));
   } catch(e) {}
+  saveToCloud(); // sync to Firebase in background
 }
 
-function loadFromStorage() {
-  // Priority 1: shared URL hash (someone opened a shared link)
+async function loadFromStorage() {
+  // Priority 1: shared URL hash
   if (loadFromShareHash()) return;
-  // Priority 2: localStorage (own device, previous session)
+  // Priority 2: Firebase cloud (source of truth across devices)
+  const fromCloud = await loadFromCloud();
+  if (fromCloud) {
+    // Mirror to localStorage for offline resilience
+    try {
+      localStorage.setItem('bali_pois', JSON.stringify(pois));
+      const dur = {}; places.forEach(p => { dur[p.id] = p.duration; });
+      localStorage.setItem('bali_durations', JSON.stringify(dur));
+    } catch(e) {}
+    return;
+  }
+  // Priority 3: localStorage (offline fallback)
   try {
     const savedPois = localStorage.getItem('bali_pois');
     if (savedPois) pois = JSON.parse(savedPois);
-    else           pois = JSON.parse(JSON.stringify(DEFAULT_POIS)); // deep copy defaults
+    else           pois = JSON.parse(JSON.stringify(DEFAULT_POIS));
     const savedDur = localStorage.getItem('bali_durations');
     const durations = savedDur ? JSON.parse(savedDur) : DEFAULT_DURATIONS;
     places.forEach(p => { if (durations[p.id] != null) p.duration = durations[p.id]; });
+    // Push local data up to Firebase so it's available on other devices
+    saveToCloud();
   } catch(e) {
     pois = JSON.parse(JSON.stringify(DEFAULT_POIS));
   }
