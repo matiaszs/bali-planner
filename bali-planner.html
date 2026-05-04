@@ -290,6 +290,7 @@
   }
   .itin-empty { padding: 40px 20px; text-align: center; color: rgba(255,255,255,0.25); font-size: 13px; line-height: 1.7; }
   .itin-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+  .weather-badge { font-size:12px; color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:10px; white-space:nowrap; }
 
   /* STATS BAR */
   .stats-bar {
@@ -541,6 +542,16 @@
           <textarea id="place-note" placeholder="Heures d'ouverture, à essayer, conseils..."></textarea>
         </div>
 
+        <div class="form-group">
+          <label>Budget estimé (optionnel)</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" id="place-price" placeholder="0" min="0" style="width:100px;" />
+            <span style="font-size:13px;color:rgba(255,255,255,0.4);">€</span>
+          </div>
+        </div>
+
+        <div id="place-photo-preview"></div>
+
         <button class="btn-primary" id="btn-add" onclick="addPlace()" disabled>
           Ajouter à la carte
         </button>
@@ -548,6 +559,14 @@
     </div>
 
     <div id="panel-itinerary" class="panel">
+      <div id="itin-settings" style="padding:16px 20px 12px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+        <label style="font-size:11px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">Date de départ</label>
+        <input type="date" id="trip-start-date" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:white;padding:7px 12px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;" onchange="setTripStartDate(this.value)"/>
+        <div id="travel-mode-bar" style="display:none;margin-top:10px;align-items:center;justify-content:space-between;">
+          <span id="travel-day-label" style="font-size:13px;font-weight:600;color:white;"></span>
+          <span id="travel-day-badge" style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(42,127,143,0.3);color:#3A9AAB;"></span>
+        </div>
+      </div>
       <div style="flex:1;overflow-y:auto;" id="itin-scroll">
         <div id="itin-content"></div>
       </div>
@@ -788,6 +807,8 @@ function pickSearchResult(lat, lon, name) {
   document.getElementById('search-dropdown').style.display = 'none';
   document.getElementById('search-input').value = name;
   pendingCoords = { lat: parseFloat(lat), lng: parseFloat(lon) };
+  pendingPhotoUrl = null;
+  document.getElementById('place-photo-preview').innerHTML = '';
   if (tempMarker) map.removeLayer(tempMarker);
   tempMarker = L.circleMarker([pendingCoords.lat, pendingCoords.lng], {
     radius: 10, color: '#2A7F8F', fillColor: '#2A7F8F', fillOpacity: 0.5, weight: 2
@@ -799,6 +820,14 @@ function pickSearchResult(lat, lon, name) {
   document.getElementById('place-name').value = name;
   document.getElementById('btn-add').disabled = false;
   document.getElementById('place-name').focus();
+  // Fetch Wikipedia photo in background
+  fetchWikiPhoto(name).then(url => {
+    pendingPhotoUrl = url || null;
+    if (url) {
+      document.getElementById('place-photo-preview').innerHTML =
+        `<img src="${url}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-top:8px;" onerror="this.style.display='none'"/>`;
+    }
+  });
 }
 
 document.addEventListener('click', e => {
@@ -807,6 +836,10 @@ document.addEventListener('click', e => {
 });
 
 let map, tempMarker, pendingCoords = null;
+let tripStartDate = '';
+let visited = new Set();
+let weatherCache = {};
+let pendingPhotoUrl = null;
 let places = [
   { id: 1, name: 'Canggu',         cat: 'Plage',   day: 1, duration: 7, note: '', lat: -8.6522, lng: 115.1320, transport: null   },
   { id: 2, name: 'Sidemen',        cat: 'Nature',  day: 2, duration: 2, note: '', lat: -8.4844, lng: 115.4387, transport: 'land' },
@@ -883,7 +916,7 @@ async function saveToCloud() {
     await fetch(`${FIREBASE_URL}/bali.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pois, durations })
+      body: JSON.stringify({ pois, durations, tripStartDate, visited: [...visited] })
     });
   } catch(e) {}
 }
@@ -896,6 +929,8 @@ async function loadFromCloud() {
     if (!data || !Array.isArray(data.pois)) return false;
     pois = data.pois;
     if (data.durations) places.forEach(p => { if (data.durations[p.id] != null) p.duration = data.durations[p.id]; });
+    if (data.tripStartDate != null) tripStartDate = data.tripStartDate;
+    visited = new Set(data.visited || []);
     return true;
   } catch(e) { return false; }
 }
@@ -911,6 +946,8 @@ function startCloudSync() {
       if (!data || !Array.isArray(data.pois)) return;
       pois = data.pois;
       if (data.durations) places.forEach(p => { if (data.durations[p.id] != null) p.duration = data.durations[p.id]; });
+      if (data.tripStartDate != null) tripStartDate = data.tripStartDate;
+      if (data.visited) visited = new Set(data.visited);
       // Refresh map markers
       Object.values(poiMarkers).forEach(m => { try { map.removeLayer(m); } catch(e){} });
       poiMarkers = {};
@@ -923,6 +960,8 @@ function startCloudSync() {
         localStorage.setItem('bali_pois', JSON.stringify(pois));
         const dur = {}; places.forEach(p => { dur[p.id] = p.duration; });
         localStorage.setItem('bali_durations', JSON.stringify(dur));
+        localStorage.setItem('bali_tripStartDate', tripStartDate);
+        localStorage.setItem('bali_visited', JSON.stringify([...visited]));
       } catch(e) {}
     } catch(err) {}
   });
@@ -969,6 +1008,8 @@ function saveToStorage() {
     const durations = {};
     places.forEach(p => { durations[p.id] = p.duration; });
     localStorage.setItem('bali_durations', JSON.stringify(durations));
+    localStorage.setItem('bali_tripStartDate', tripStartDate);
+    localStorage.setItem('bali_visited', JSON.stringify([...visited]));
   } catch(e) {}
   saveToCloud(); // sync to Firebase in background
 }
@@ -984,6 +1025,8 @@ async function loadFromStorage() {
       localStorage.setItem('bali_pois', JSON.stringify(pois));
       const dur = {}; places.forEach(p => { dur[p.id] = p.duration; });
       localStorage.setItem('bali_durations', JSON.stringify(dur));
+      localStorage.setItem('bali_tripStartDate', tripStartDate);
+      localStorage.setItem('bali_visited', JSON.stringify([...visited]));
     } catch(e) {}
     return;
   }
@@ -995,6 +1038,10 @@ async function loadFromStorage() {
     const savedDur = localStorage.getItem('bali_durations');
     const durations = savedDur ? JSON.parse(savedDur) : DEFAULT_DURATIONS;
     places.forEach(p => { if (durations[p.id] != null) p.duration = durations[p.id]; });
+    const savedStart = localStorage.getItem('bali_tripStartDate');
+    if (savedStart) tripStartDate = savedStart;
+    const savedVisited = localStorage.getItem('bali_visited');
+    if (savedVisited) visited = new Set(JSON.parse(savedVisited));
     // Push local data up to Firebase so it's available on other devices
     saveToCloud();
   } catch(e) {
@@ -1071,19 +1118,24 @@ function addPlace() {
   if (!name || !pendingCoords) return;
   const cat      = getSelectedCat();
   const note     = document.getElementById('place-note').value.trim();
+  const price    = parseFloat(document.getElementById('place-price').value) || null;
   const stageVal = document.getElementById('place-stage').value;
   const stageId  = stageVal ? parseInt(stageVal) : null;
   const dayNum   = stageId ? Math.max(1, parseInt(document.getElementById('place-day-num').value) || 1) : null;
   const id = Date.now();
-  const poi = { id, name, cat, note, lat: pendingCoords.lat, lng: pendingCoords.lng, stageId, dayNum };
+  const photoUrl = pendingPhotoUrl || null;
+  const poi = { id, name, cat, note, price, lat: pendingCoords.lat, lng: pendingCoords.lng, stageId, dayNum, photoUrl };
   pois.push(poi);
   addPoiMarker(poi);
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
   pendingCoords = null;
+  pendingPhotoUrl = null;
   document.getElementById('coords-display').classList.remove('has-coords');
   document.getElementById('coords-text').textContent = 'Cherche un lieu ou clique sur la carte…';
   document.getElementById('place-name').value = '';
   document.getElementById('place-note').value = '';
+  document.getElementById('place-price').value = '';
+  document.getElementById('place-photo-preview').innerHTML = '';
   document.getElementById('search-input').value = '';
   document.getElementById('btn-add').disabled = true;
   updateStats();
@@ -1118,7 +1170,7 @@ function switchTabDirect(tab) {
   document.getElementById('panel-' + tab).classList.add('active');
   const tabs = document.querySelectorAll('.tab');
   if (tab === 'add') tabs[0].classList.add('active');
-  if (tab === 'itinerary') { tabs[1].classList.add('active'); renderItinerary(); }
+  if (tab === 'itinerary') { tabs[1].classList.add('active'); renderItinerary(); fetchWeatherForStages(); }
   if (window.innerWidth <= 768) openSidebar();
 }
 
@@ -1149,6 +1201,7 @@ function buildPoiPopup(poi) {
   ].join('');
 
   return `<div style="min-width:210px;">
+    ${poi.photoUrl ? `<img src="${poi.photoUrl}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:8px;" onerror="this.style.display='none'"/>` : ''}
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
       <span style="font-size:20px;line-height:1;">${emoji}</span>
       <div>
@@ -1402,12 +1455,81 @@ function updateStats() {
 function renderItinerary() {
   const cont = document.getElementById('itin-content');
   const ordered = [...places].sort((a, b) => a.day - b.day);
+  const totalDays = places.reduce((acc, p) => acc + (p.duration || 1), 0);
+  const travelDay = getTravelDay();
+
+  // Update trip-start-date input value
+  const dateInput = document.getElementById('trip-start-date');
+  if (dateInput && tripStartDate && !dateInput.value) dateInput.value = tripStartDate;
+
+  // Update travel mode bar
+  const bar = document.getElementById('travel-mode-bar');
+  const dayLabel = document.getElementById('travel-day-label');
+  const dayBadge = document.getElementById('travel-day-badge');
+  if (bar) {
+    if (tripStartDate) {
+      bar.style.display = 'flex';
+      const start = new Date(tripStartDate);
+      const now = new Date();
+      start.setHours(0,0,0,0); now.setHours(0,0,0,0);
+      const rawDiff = Math.floor((now - start) / 86400000) + 1;
+      if (travelDay && travelDay >= 1 && travelDay <= totalDays) {
+        dayLabel.textContent = `Jour ${travelDay}`;
+        dayBadge.textContent = 'Voyage en cours 🟢';
+        dayBadge.style.background = 'rgba(42,127,143,0.3)';
+        dayBadge.style.color = '#3A9AAB';
+      } else if (rawDiff < 1) {
+        const daysUntil = 1 - rawDiff;
+        dayLabel.textContent = `Dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''}`;
+        dayBadge.textContent = 'À venir ✈️';
+        dayBadge.style.background = 'rgba(232,113,74,0.2)';
+        dayBadge.style.color = '#F08B68';
+      } else {
+        dayLabel.textContent = `Jour ${travelDay || rawDiff}`;
+        dayBadge.textContent = 'Voyage terminé';
+        dayBadge.style.background = 'rgba(255,255,255,0.08)';
+        dayBadge.style.color = 'rgba(255,255,255,0.4)';
+      }
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // Weather: compute dayStart = days from today to tripStartDate
+  let dayStart = 0;
+  if (tripStartDate) {
+    const start = new Date(tripStartDate);
+    const now = new Date();
+    start.setHours(0,0,0,0); now.setHours(0,0,0,0);
+    dayStart = Math.floor((start - now) / 86400000);
+  }
+
+  // Grand total budget
+  const grandTotal = pois.reduce((s, p) => s + (p.price || 0), 0);
+
   let html = '';
+  let cumDay = 0; // cumulative days offset through stages
 
   ordered.forEach((stage, si) => {
     const color      = CAT_COLORS[stage.cat] || '#6B7280';
     const dur        = stage.duration || 1;
     const stagePois  = pois.filter(p => p.stageId === stage.id);
+    const stageTotal = stagePois.reduce((s, p) => s + (p.price || 0), 0);
+
+    // Weather for this stage
+    const wKey = `${stage.lat.toFixed(2)},${stage.lng.toFixed(2)}`;
+    const wData = weatherCache[wKey];
+    let weatherHtml = '';
+    if (wData && tripStartDate) {
+      const dayOffset = dayStart + cumDay;
+      if (dayOffset >= 0 && dayOffset < (wData.time ? wData.time.length : 0)) {
+        const code = wData.weathercode[dayOffset];
+        const maxT = wData.temperature_2m_max[dayOffset];
+        const minT = wData.temperature_2m_min[dayOffset];
+        const icon = WMO_ICON(code);
+        weatherHtml = `<span class="weather-badge">${icon} ${Math.round(maxT)}° / ${Math.round(minT)}°</span>`;
+      }
+    }
 
     if (si > 0) {
       const prev   = ordered[si - 1];
@@ -1420,6 +1542,8 @@ function renderItinerary() {
       <div class="itin-stage-header" onclick="focusPlace(${stage.id})">
         <div class="itin-stage-dot" style="background:${color}"></div>
         <div class="itin-stage-name">${stage.name}</div>
+        ${stageTotal > 0 ? `<span style="font-size:11px;color:rgba(255,255,255,0.4);">${stageTotal}€</span>` : ''}
+        ${weatherHtml}
         <div class="itin-stage-dur">
           <input type="number" class="dur-input" value="${dur}" min="1"
             onclick="event.stopPropagation()"
@@ -1431,17 +1555,27 @@ function renderItinerary() {
 
     for (let d = 1; d <= dur; d++) {
       const dayPois = stagePois.filter(p => p.dayNum === d);
-      html += `<div class="itin-day-block"><div class="itin-day-title">Jour ${d}</div>`;
+      // Compute the absolute travel day for this day slot
+      const absDayNum = cumDay + d;
+      const isCurrentDay = travelDay !== null && travelDay === absDayNum;
+
+      html += `<div class="itin-day-block"><div class="itin-day-title">Jour ${d}${isCurrentDay ? ' 📍' : ''}</div>`;
 
       dayPois.forEach(poi => {
         const emoji = CAT_EMOJIS[poi.cat] || '📌';
+        const isVisited = visited.has(poi.id);
+        const nameStyle = isVisited ? 'text-decoration:line-through;opacity:0.5;' : '';
+        const checkbox = isCurrentDay
+          ? `<input type="checkbox" ${isVisited ? 'checked' : ''} onchange="toggleVisited(${poi.id})" style="cursor:pointer;accent-color:var(--ocean);width:14px;height:14px;flex-shrink:0;">`
+          : '';
         html += `<div class="itin-poi-card">
-          <span class="itin-poi-emoji">${emoji}</span>
+          ${checkbox}<span class="itin-poi-emoji">${emoji}</span>
           <div class="itin-poi-body">
-            <div class="itin-poi-name">${poi.name}</div>
+            <div class="itin-poi-name" style="${nameStyle}">${poi.name}</div>
             <div class="itin-poi-note" id="poi-note-${poi.id}">${poi.note || '<em style="opacity:0.5;">Ajouter une description…</em>'}</div>
           </div>
           <div class="itin-poi-actions">
+            ${poi.price ? `<span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;padding-right:4px;">${poi.price}€</span>` : ''}
             <button class="itin-poi-btn" onclick="startEditNote(${poi.id})" title="Modifier">✎</button>
             <button class="itin-poi-btn" onclick="deletePoi(${poi.id})" title="Supprimer">×</button>
           </div>
@@ -1453,9 +1587,22 @@ function renderItinerary() {
     }
 
     html += '</div></div>';
+    cumDay += dur;
   });
 
+  // Grand total budget block
+  if (grandTotal > 0) {
+    html += `<div style="margin:16px 20px;padding:12px 16px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.07);">
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Budget total estimé</div>
+      <div style="font-size:20px;font-weight:600;color:var(--ocean-light);">${grandTotal}€</div>
+    </div>`;
+  }
+
   cont.innerHTML = html || '<div class="itin-empty"><div class="itin-empty-icon">📍</div>Aucune étape.</div>';
+
+  // Restore date input value after re-render
+  const di = document.getElementById('trip-start-date');
+  if (di && tripStartDate) di.value = tripStartDate;
 }
 
 function focusPlace(id) {
@@ -1515,7 +1662,7 @@ function switchTab(tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   event.target.classList.add('active');
-  if (tab === 'itinerary') renderItinerary();
+  if (tab === 'itinerary') { renderItinerary(); fetchWeatherForStages(); }
 }
 
 
@@ -1551,6 +1698,70 @@ function closeSidebar() {
     map.doubleClickZoom.enable();
     map.scrollWheelZoom.enable();
   }
+}
+
+// ── Feature 1: Mode "Voyage en cours" ──────────────────────────────────────
+
+function setTripStartDate(val) {
+  tripStartDate = val;
+  saveToStorage();
+  renderItinerary();
+}
+
+function getTravelDay() {
+  if (!tripStartDate) return null;
+  const start = new Date(tripStartDate);
+  const now = new Date();
+  start.setHours(0,0,0,0); now.setHours(0,0,0,0);
+  const diff = Math.floor((now - start) / 86400000) + 1;
+  return diff >= 1 ? diff : null;
+}
+
+function toggleVisited(poiId) {
+  if (visited.has(poiId)) visited.delete(poiId);
+  else visited.add(poiId);
+  saveToStorage();
+  renderItinerary();
+}
+
+// ── Feature 3: Météo par étape ──────────────────────────────────────────────
+
+const WMO_ICON = code => {
+  if (code === 0) return '☀️';
+  if (code <= 3) return '⛅';
+  if (code <= 48) return '🌫️';
+  if (code <= 67) return '🌧️';
+  if (code <= 82) return '🌦️';
+  return '⛈️';
+};
+
+async function fetchWeatherForStages() {
+  const ordered = [...places].sort((a,b) => a.day - b.day);
+  let updated = false;
+  for (const stage of ordered) {
+    const key = `${stage.lat.toFixed(2)},${stage.lng.toFixed(2)}`;
+    if (weatherCache[key]) continue;
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stage.lat}&longitude=${stage.lng}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FMakassar&forecast_days=16`;
+      const res = await fetch(url);
+      const data = await res.json();
+      weatherCache[key] = data.daily;
+      updated = true;
+    } catch(e) {}
+  }
+  if (updated) renderItinerary();
+}
+
+// ── Feature 4: Photos Wikipedia ─────────────────────────────────────────────
+
+async function fetchWikiPhoto(name) {
+  try {
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.thumbnail && data.thumbnail.source) ? data.thumbnail.source : null;
+  } catch(e) { return null; }
 }
 
 window.addEventListener('DOMContentLoaded', () => { checkAuth(); initMap(); });
