@@ -380,9 +380,78 @@
     border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
   .custom-marker-inner { transform: rotate(45deg); font-size: 12px; font-weight: 700; color: white; }
+  /* LOCK SCREEN */
+  #lockscreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(160deg, #1A1F2E 0%, #0f1520 60%, #1A3040 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #lockscreen.hidden { display: none; }
+  .lock-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px; font-weight: 500; color: white; letter-spacing: 0.02em;
+    margin-bottom: 6px;
+  }
+  .lock-logo span { color: #F08B68; font-style: italic; }
+  .lock-sub {
+    font-size: 12px; color: rgba(255,255,255,0.4);
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 48px;
+  }
+  .lock-card {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 32px 28px; width: 100%; max-width: 340px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .lock-label { font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 500; }
+  .lock-input {
+    width: 100%; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.07);
+    color: white; font-size: 16px; font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color 0.2s; letter-spacing: 0.05em;
+  }
+  .lock-input:focus { border-color: rgba(240,139,104,0.6); }
+  .lock-input.error { border-color: rgba(255,80,80,0.6); animation: shake 0.3s; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)}
+  }
+  .lock-btn {
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, #E8714A, #F08B68);
+    color: white; font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: opacity 0.2s;
+  }
+  .lock-btn:hover { opacity: 0.88; }
+  .lock-err { font-size: 12px; color: rgba(255,100,100,0.85); text-align: center; min-height: 16px; }
+  .lock-remember { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .lock-remember input { width: 15px; height: 15px; accent-color: #E8714A; cursor: pointer; }
+  .lock-remember span { font-size: 12px; color: rgba(255,255,255,0.45); }
+  #btn-lock {
+    background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);
+    border-radius: 20px; padding: 5px 10px; font-size: 11px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap;
+  }
+  #btn-lock:hover { border-color: rgba(255,255,255,0.35); color: rgba(255,255,255,0.8); }
 </style>
 </head>
 <body>
+
+<div id="lockscreen">
+  <div class="lock-logo">Bali <span>Planner</span></div>
+  <div class="lock-sub">Planificateur d'itinéraire</div>
+  <div class="lock-card">
+    <div class="lock-label">Code d'accès</div>
+    <input id="lock-input" class="lock-input" type="password" placeholder="••••••••"
+           autocomplete="off" onkeydown="if(event.key==='Enter')checkCode()"/>
+    <div id="lock-err" class="lock-err"></div>
+    <button class="lock-btn" onclick="checkCode()">Accéder au planificateur</button>
+    <label class="lock-remember">
+      <input type="checkbox" id="lock-remember" checked/>
+      <span>Rester connecté sur cet appareil</span>
+    </label>
+  </div>
+</div>
+
 <div id="app">
   <div id="sidebar">
     <div id="mobile-handle">
@@ -398,12 +467,15 @@
           <div class="app-title">Bali <span>Planner</span></div>
           <div class="app-sub">Planificateur d'itinéraire</div>
         </div>
-        <button id="btn-share" onclick="copyShareLink()" style="
-          margin-top:4px;flex-shrink:0;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
-          background:rgba(255,255,255,0.07);color:white;font-size:11px;font-weight:500;cursor:pointer;
-          white-space:nowrap;transition:all 0.2s;">
-          Partager
-        </button>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-shrink:0;">
+          <button id="btn-share" onclick="copyShareLink()" style="
+            padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
+            background:rgba(255,255,255,0.07);color:white;font-size:11px;font-weight:500;cursor:pointer;
+            white-space:nowrap;transition:all 0.2s;">
+            Partager
+          </button>
+          <button id="btn-lock" onclick="lockApp()" title="Verrouiller">🔒</button>
+        </div>
       </div>
     </div>
 
@@ -759,6 +831,45 @@ let currentLayer = 'streets';
 let tileLayer;
 
 const BALI_CENTER = [-8.4095, 115.1889];
+
+const ACCESS_CODE = 'HMbali2026';
+const AUTH_KEY    = 'bali_auth';
+
+function checkCode() {
+  const input = document.getElementById('lock-input');
+  const err   = document.getElementById('lock-err');
+  if (input.value === ACCESS_CODE) {
+    if (document.getElementById('lock-remember').checked) {
+      localStorage.setItem(AUTH_KEY, '1');
+    } else {
+      sessionStorage.setItem(AUTH_KEY, '1');
+    }
+    document.getElementById('lockscreen').classList.add('hidden');
+    err.textContent = '';
+  } else {
+    err.textContent = 'Code incorrect, réessaie.';
+    input.classList.add('error');
+    input.value = '';
+    setTimeout(() => input.classList.remove('error'), 400);
+  }
+}
+
+function lockApp() {
+  localStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(AUTH_KEY);
+  document.getElementById('lockscreen').classList.remove('hidden');
+  document.getElementById('lock-input').value = '';
+  document.getElementById('lock-err').textContent = '';
+  document.getElementById('lock-input').focus();
+}
+
+function checkAuth() {
+  if (localStorage.getItem(AUTH_KEY) === '1' || sessionStorage.getItem(AUTH_KEY) === '1') {
+    document.getElementById('lockscreen').classList.add('hidden');
+  } else {
+    setTimeout(() => document.getElementById('lock-input').focus(), 100);
+  }
+}
 
 const FIREBASE_URL = 'https://bali-planner-aadd9-default-rtdb.firebaseio.com';
 let _lastCloudSave = 0;
@@ -1442,7 +1553,7 @@ function closeSidebar() {
   }
 }
 
-window.addEventListener('DOMContentLoaded', initMap);
+window.addEventListener('DOMContentLoaded', () => { checkAuth(); initMap(); });
 </script>
 </body>
 </html>
