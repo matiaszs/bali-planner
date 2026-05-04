@@ -839,6 +839,7 @@ let map, tempMarker, pendingCoords = null;
 let tripStartDate = '';
 let visited = new Set();
 let weatherCache = {};
+let currentWeatherCache = {};
 let pendingPhotoUrl = null;
 let places = [
   { id: 1, name: 'Canggu',         cat: 'Plage',   day: 1, duration: 7, note: '', lat: -8.6522, lng: 115.1320, transport: null   },
@@ -1386,6 +1387,7 @@ function addMarker(place) {
   const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place) }).addTo(map);
   marker.bindPopup(buildPopup(place));
   marker.bindTooltip(place.name, { permanent: true, direction: 'top', offset: [0, -4], className: 'place-label' });
+  marker.on('popupopen', () => fetchCurrentWeatherForPopup(place));
   markers[place.id] = marker;
 }
 
@@ -1396,6 +1398,7 @@ function buildPopup(place) {
     `<option value="${i+1}" ${place.day===i+1?'selected':''}>Jour ${i+1}</option>`).join('');
   return `<div class="popup-name">${place.name}</div>
     <div class="popup-cat">${place.cat} &mdash; Jour ${place.day} &middot; Étape ${idx}</div>
+    <div id="pw-${place.id}" style="font-size:12px;color:#555;margin:5px 0 2px;min-height:18px;"><span style="opacity:0.4">🌡️ chargement…</span></div>
     ${place.note ? `<div class="popup-note">${place.note}</div>` : ''}
     <div class="popup-actions">
       <select onchange="moveToDay(${place.id},this.value)" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-family:'DM Sans',sans-serif;">${dayOpts}</select>
@@ -1520,14 +1523,20 @@ function renderItinerary() {
     const wKey = `${stage.lat.toFixed(2)},${stage.lng.toFixed(2)}`;
     const wData = weatherCache[wKey];
     let weatherHtml = '';
-    if (wData && tripStartDate) {
+    if (!tripStartDate) {
+      weatherHtml = `<span class="weather-badge" style="opacity:0.4;font-size:10px;">📅 date de départ ?</span>`;
+    } else if (wData) {
       const dayOffset = dayStart + cumDay;
       if (dayOffset >= 0 && dayOffset < (wData.time ? wData.time.length : 0)) {
         const code = wData.weathercode[dayOffset];
         const maxT = wData.temperature_2m_max[dayOffset];
         const minT = wData.temperature_2m_min[dayOffset];
         const icon = WMO_ICON(code);
-        weatherHtml = `<span class="weather-badge">${icon} ${Math.round(maxT)}° / ${Math.round(minT)}°</span>`;
+        const forecastDate = new Date(wData.time[dayOffset]);
+        const dateLabel = forecastDate.toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+        weatherHtml = `<span class="weather-badge" title="Prévision du ${dateLabel}">${icon} ${Math.round(maxT)}°/${Math.round(minT)}° · ${dateLabel}</span>`;
+      } else if (dayOffset > 15) {
+        weatherHtml = `<span class="weather-badge" style="opacity:0.4;font-size:10px;">⏳ hors plage 16j</span>`;
       }
     }
 
@@ -1734,6 +1743,25 @@ const WMO_ICON = code => {
   if (code <= 82) return '🌦️';
   return '⛈️';
 };
+
+async function fetchCurrentWeatherForPopup(place) {
+  const el = document.getElementById(`pw-${place.id}`);
+  if (!el) return;
+  if (currentWeatherCache[place.id]) { el.innerHTML = currentWeatherCache[place.id]; return; }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lng}&current=temperature_2m,weathercode&timezone=Asia%2FMakassar`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const c = data.current;
+    const html = `${WMO_ICON(c.weathercode)} <strong>${Math.round(c.temperature_2m)}°C</strong> <span style="opacity:0.5;font-size:11px;">en ce moment</span>`;
+    currentWeatherCache[place.id] = html;
+    const el2 = document.getElementById(`pw-${place.id}`);
+    if (el2) el2.innerHTML = html;
+  } catch(e) {
+    const el2 = document.getElementById(`pw-${place.id}`);
+    if (el2) el2.innerHTML = '';
+  }
+}
 
 async function fetchWeatherForStages() {
   const ordered = [...places].sort((a,b) => a.day - b.day);
